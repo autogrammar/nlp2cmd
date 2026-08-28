@@ -58,6 +58,7 @@ dependencies = [
     "psutil>=5.9.0",
     "rapidfuzz>=3.0",
     "nlp2cmd-intent>=0.1.2",
+    "subactor-subllm @ git+https://github.com/subactor/subllm.git@505d89f505e90c7b40d98cafdc9104cc61072460",
 ]
 
 [project.optional-dependencies]
