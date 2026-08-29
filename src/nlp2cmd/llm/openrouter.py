@@ -190,6 +190,8 @@ class OpenRouterClient:
         Returns:
             LLMResponse
         """
+        if subllm_complete is None:
+            return LLMResponse(success=False, error="subactor-subllm is not available")
         if not self.api_key:
             return LLMResponse(success=False, error="OPENROUTER_API_KEY not set")
 
@@ -207,14 +209,24 @@ class OpenRouterClient:
             ],
         })
 
-        body: dict[str, Any] = {
-            "model": model or self.MODELS["vision"],
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-
-        return await self._request(body)
+        credentials = {"openrouter": self.api_key}
+        try:
+            response = await asyncio.to_thread(
+                subllm_complete,
+                "autogrammar-nlp2cmd",
+                "vision",
+                messages,
+                timeout_seconds=self.timeout,
+                credentials=credentials,
+            )
+            return LLMResponse(
+                content=response.content,
+                model=response.model,
+                usage=dict(response.usage),
+                finish_reason=response.finish_reason,
+            )
+        except Exception as exc:
+            return LLMResponse(success=False, error=f"SubLLM vision request failed: {exc}")
 
     async def plan_actions(
         self,
