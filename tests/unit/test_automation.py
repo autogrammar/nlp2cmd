@@ -467,8 +467,11 @@ class TestOpenRouterClient:
         client.api_key = None
         assert client.is_configured is False
 
-    def test_is_configured_true(self):
+    def test_is_configured_true(self, monkeypatch):
+        from nlp2cmd.llm import openrouter as or_mod
         from nlp2cmd.llm.openrouter import OpenRouterClient
+
+        monkeypatch.setattr(or_mod, "available_routes", lambda *args, **kwargs: True)
         client = OpenRouterClient(api_key="test-key")
         assert client.is_configured is True
 
