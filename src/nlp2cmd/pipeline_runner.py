@@ -166,6 +166,8 @@ class PipelineRunner:
 # This preserves backward compatibility: all imports of PipelineRunner still work.
 from nlp2cmd.pipeline_runner_shell import ShellExecutionMixin  # noqa: E402
 from nlp2cmd.pipeline_runner_browser import BrowserExecutionMixin  # noqa: E402
+from nlp2cmd.pipeline_runner_browser_multi import BrowserMultiActionMixin  # noqa: E402
+from nlp2cmd.pipeline_runner_browser_dispatch import BrowserDispatchMixin  # noqa: E402
 from nlp2cmd.pipeline_runner_desktop import DesktopExecutionMixin  # noqa: E402
 from nlp2cmd.pipeline_runner_plans import PlanExecutionMixin  # noqa: E402
 
@@ -175,6 +177,8 @@ _BasePipelineRunner = PipelineRunner
 class PipelineRunner(  # type: ignore[no-redef]
     ShellExecutionMixin,
     BrowserExecutionMixin,
+    BrowserMultiActionMixin,
+    BrowserDispatchMixin,
     DesktopExecutionMixin,
     PlanExecutionMixin,
     _BasePipelineRunner,
@@ -183,7 +187,9 @@ class PipelineRunner(  # type: ignore[no-redef]
 
     Mixins:
     - ShellExecutionMixin: _run_shell, _parse_shell_command, _check_against_safety_policy
-    - BrowserExecutionMixin: _run_dom_dql, _run_dom_multi_action
+    - BrowserExecutionMixin: _run_dom_dql
+    - BrowserMultiActionMixin: _run_dom_multi_action
+    - BrowserDispatchMixin: _run_dom_multi_action_dispatch
     - DesktopExecutionMixin: _dismiss_popups, _detect_desktop_backend,
       _execute_desktop_plan_step, _xdotool_keys_to_ydotool, etc.
     - PlanExecutionMixin: execute_action_plan, _execute_plan_step,
