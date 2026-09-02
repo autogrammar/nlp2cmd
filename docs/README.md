@@ -3451,7 +3451,7 @@ nlp2cmd/
 
 ## Requirements
 
-- Python >= >=3.10
+- Python >= 3.11
 - pyyaml >=6.0- pydantic >=2.0- rich >=13.0- click >=8.0- httpx >=0.25.0- jinja2 >=3.0- jsonschema >=4.0- python-dotenv >=1.0- watchdog >=3.0- numpy >=1.24.0- psutil >=5.9.0- rapidfuzz >=3.0
 
 ## Contributing

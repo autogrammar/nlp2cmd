@@ -22,9 +22,8 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 try:
-    from subllm import available_routes, complete as subllm_complete
+    from subllm import complete as subllm_complete
 except ImportError:
-    available_routes = None
     subllm_complete = None
 
 _DEBUG = os.environ.get("NLP2CMD_DEBUG", "").lower() in ("1", "true", "yes")
@@ -95,15 +94,8 @@ class OpenRouterClient:
 
     @property
     def is_configured(self) -> bool:
-        """Check whether the central NLP2CMD route has a usable credential."""
-        if available_routes is None:
-            return False
-        credentials = {"OPENROUTER_API_KEY": self.api_key} if self.api_key else None
-        return bool(
-            available_routes(
-                "autogrammar-nlp2cmd", "generate", credentials=credentials
-            )
-        )
+        """Check whether the client can submit a request through SubLLM."""
+        return subllm_complete is not None and bool(self.api_key)
 
     def _headers(self) -> dict[str, str]:
         return {
@@ -190,6 +182,8 @@ class OpenRouterClient:
         Returns:
             LLMResponse
         """
+        if subllm_complete is None:
+            return LLMResponse(success=False, error="subactor-subllm is not available")
         if not self.api_key:
             return LLMResponse(success=False, error="OPENROUTER_API_KEY not set")
 
@@ -207,14 +201,24 @@ class OpenRouterClient:
             ],
         })
 
-        body: dict[str, Any] = {
-            "model": model or self.MODELS["vision"],
-            "messages": messages,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        }
-
-        return await self._request(body)
+        credentials = {"openrouter": self.api_key}
+        try:
+            response = await asyncio.to_thread(
+                subllm_complete,
+                "autogrammar-nlp2cmd",
+                "vision",
+                messages,
+                timeout_seconds=self.timeout,
+                credentials=credentials,
+            )
+            return LLMResponse(
+                content=response.content,
+                model=response.model,
+                usage=dict(response.usage),
+                finish_reason=response.finish_reason,
+            )
+        except Exception as exc:
+            return LLMResponse(success=False, error=f"SubLLM vision request failed: {exc}")
 
     async def plan_actions(
         self,

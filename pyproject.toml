@@ -57,7 +57,7 @@ dependencies = [
     "psutil>=5.9.0",
     "rapidfuzz>=3.0",
     "nlp2cmd-intent>=0.1.2",
-    "subactor-subllm @ git+https://github.com/subactor/subllm.git@505d89f505e90c7b40d98cafdc9104cc61072460",
+    "subactor-subllm @ git+https://github.com/subactor/subllm.git@40726bb9399eb5cf9dfc038c1c948b7d2fbdca3b",
 ]
 
 [project.optional-dependencies]
@@ -253,7 +253,7 @@ ignore = [
 "tests/*" = ["S101"]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
