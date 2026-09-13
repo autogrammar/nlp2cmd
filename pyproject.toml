@@ -159,7 +159,7 @@ Issues = "https://github.com/wronai/nlp2cmd/issues"
 Changelog = "https://github.com/wronai/nlp2cmd/blob/main/CHANGELOG.md"
 
 [tool.uv.sources]
-vql = { path = "../../oqlos/vql", editable = true }
+vql = { path = "../vql", editable = true }
 # Sibling monorepo packages (../nlp2dsl). Publish to PyPI for standalone installs.
 nlp2cmd-intent = { path = "../nlp2dsl/packages/nlp2cmd-intent", editable = true }
 pact-ir = { path = "../nlp2dsl/packages/pact-ir", editable = true }
