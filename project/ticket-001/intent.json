@@ -1,0 +1,17 @@
+{
+  "ticket": "ticket-001",
+  "summary": "Remove pfix auto-repair configuration and dependency declarations",
+  "allowedPaths": [
+    "pyproject.toml",
+    "uv.lock",
+    "project/ticket-001/**"
+  ],
+  "forbiddenPaths": [
+    ".env",
+    "src/**",
+    "tests/**",
+    ".github/workflows/**"
+  ],
+  "authorization": "SESSION_EXECUTION_AUTHORIZATION",
+  "outcome": "pfix is no longer configured, installed or locked by this project; no runtime behavior change."
+}
