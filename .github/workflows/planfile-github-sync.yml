@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   sync:
-    uses: semcod/planfile/.github/workflows/planfile-sync-reusable.yml@v0.1.126
+    uses: semcod/planfile/.github/workflows/planfile-sync-reusable.yml@e79d79509c050514ba434c3bd6589f932b91c920 # v0.1.126
     with:
       planfile-version: "0.1.126"
     permissions:
