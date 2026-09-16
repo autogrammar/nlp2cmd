@@ -1,30 +1,23 @@
-# Ticket 001: Add automatic Planfile GitHub synchronization
+# Ticket 001: Route nlp2cmd vision through central SubLLM
 
 - **ID**: ticket-001
 - **Owner**: unresolved:human
 - **Status**: DONE
-- **Workflow state**: DONE
 - **Created**: 2026-09-16
 
 ## Goal and scope
 
-Add the standard Planfile GitHub synchronization workflow to this repository
-as part of the fleet rollout authorized by the repository owner.
+Route image inputs through the central `subactor/subllm` vision transport
+instead of per-repository provider clients, as part of the fleet-wide SubLLM
+vision rollout (sibling of the published imgl integration).
 
 ## Acceptance criteria
 
-- [x] AC-01: `.github/workflows/planfile-github-sync.yml` uses the reusable
-  workflow published by `semcod/planfile` at `v0.1.126`.
-- [x] AC-02: The workflow runs on repository schedule, on Planfile changes and
-  through manual dispatch, with read access to contents and write access to
-  Issues only.
-
-## Implementation scope
-
-This ticket adds `.github/workflows/planfile-github-sync.yml` using the
-reusable workflow published by `semcod/planfile` at `v0.1.126`.
+- [x] AC-01: `OpenRouterClient` submits through the SubLLM transport when
+  available.
+- [x] AC-02: Hosted Python matrix passes (3.11/3.12).
 
 ## Session authorization
 
-Fleet rollout continuation authorized by the repository owner
-(2026-09-16 session: continue and complete stalled automations).
+Continuation of the 2026-09-16 automation-completion session authorized by
+the repository owner.
