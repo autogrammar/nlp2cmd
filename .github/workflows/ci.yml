@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
+        # subactor-subllm (the vision transport) requires Python 3.11+.
         python-version: ["3.11", "3.12"]
 
     steps:

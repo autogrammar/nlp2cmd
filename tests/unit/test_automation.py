@@ -471,7 +471,7 @@ class TestOpenRouterClient:
         from nlp2cmd.llm import openrouter as or_mod
         from nlp2cmd.llm.openrouter import OpenRouterClient
 
-        monkeypatch.setattr(or_mod, "available_routes", lambda *args, **kwargs: True)
+        monkeypatch.setattr(or_mod, "subllm_complete", lambda *args, **kwargs: None)
         client = OpenRouterClient(api_key="test-key")
         assert client.is_configured is True
 
