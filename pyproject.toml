@@ -137,7 +137,6 @@ dev = [
     "mkdocs-material>=9.0",
     "goal>=2.1.0",
     "costs>=0.1.20",
-    "pfix>=0.1.60",
     "mkdocstrings[python]>=0.24",
 ]
 all = [
@@ -159,7 +158,7 @@ Issues = "https://github.com/wronai/nlp2cmd/issues"
 Changelog = "https://github.com/wronai/nlp2cmd/blob/main/CHANGELOG.md"
 
 [tool.uv.sources]
-vql = { path = "../../oqlos/vql", editable = true }
+vql = { path = "../vql", editable = true }
 # Sibling monorepo packages (../nlp2dsl). Publish to PyPI for standalone installs.
 nlp2cmd-intent = { path = "../nlp2dsl/packages/nlp2cmd-intent", editable = true }
 pact-ir = { path = "../nlp2dsl/packages/pact-ir", editable = true }
@@ -281,22 +280,6 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
 ]
-
-[tool.pfix]
-# Self-healing Python configuration
-model = "openrouter/deep/deep-v4-pro"
-auto_apply = true
-auto_install_deps = true
-auto_restart = false
-max_retries = 3
-create_backups = false
-git_auto_commit = false
-
-[tool.pfix.runtime_todo]
-enabled = true
-todo_file = "TODO.md"
-min_severity = "low"
-deduplicate = true
 
 [tool.costs]
 # AI Cost tracking configuration
