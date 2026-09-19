@@ -7,7 +7,7 @@
 #   # Open http://localhost:6080 in browser to see the desktop
 #   # Run: nlp2cmd --run "open calculator and type 2+2"
 
-FROM ubuntu:22.04
+FROM ubuntu:22.04@sha256:cb287cf26b15fded26828219b268886d76ea3963bc93495425dcf08225c86e9f
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1

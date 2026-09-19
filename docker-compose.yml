@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    image: nlp2cmd:latest
+    image: nlp2cmd:latest@sha256:4f6f3422bc0d3fb294583530eb178fbad2f2e0377a7850d75f9156004ea064ed
     container_name: nlp2cmd
     environment:
       - PYTHONPATH=/app/src
@@ -54,7 +54,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: test
-    image: nlp2cmd:test
+    image: nlp2cmd:test@sha256:a2282e04d3dafb0819cebcdeb625a3f6e1dd378927e84f8ec6a3b88fb26f945c
     container_name: nlp2cmd-test
     environment:
       - PYTHONPATH=/app/src
@@ -91,7 +91,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    image: nlp2cmd:dev
+    image: nlp2cmd:dev@sha256:b23e51f4834ab3fb140952be4fa2ab651edb2e8daa920b501846e3300f4598b8
     container_name: nlp2cmd-dev
     environment:
       - PYTHONPATH=/app/src
@@ -117,7 +117,7 @@ services:
   # PostgreSQL for Integration Tests
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
     container_name: nlp2cmd-postgres
     environment:
       - POSTGRES_USER=nlp2cmd
@@ -144,7 +144,7 @@ services:
   # Redis for Caching (Optional)
   # ---------------------------------------------------------------------------
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:65b8118ded1f9a62a4e7682a6176a874a59f241d0223ee7f6b0c25f1da77fc92
     container_name: nlp2cmd-redis
     command: redis-server --appendonly yes
     volumes:
@@ -170,7 +170,7 @@ services:
       context: .
       dockerfile: Dockerfile
       target: test
-    image: nlp2cmd:e2e
+    image: nlp2cmd:e2e@sha256:05606e8488c69c7baf544afe3c2b0d0b4c8a9f21ffa2b15408117434bfbdad37
     container_name: nlp2cmd-e2e
     environment:
       - PYTHONPATH=/app/src
