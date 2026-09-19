@@ -1,23 +1,16 @@
-# Ticket 001: Route nlp2cmd vision through central SubLLM
+# Ticket 001: Adopt wellmanifest/new-project 0.20.35
 
 - **ID**: ticket-001
-- **Owner**: unresolved:human
-- **Status**: DONE
-- **Created**: 2026-09-16
+- **Owner**: antigravity
+- **Status**: IN_PROGRESS
+- **Workflow state**: EDIT
+- **Created**: 2026-09-19
 
 ## Goal and scope
 
-Route image inputs through the central `subactor/subllm` vision transport
-instead of per-repository provider clients, as part of the fleet-wide SubLLM
-vision rollout (sibling of the published imgl integration).
+Adopt wellmanifest/new-project standard 0.20.35 and configure canonical worktrees standard.
 
 ## Acceptance criteria
 
-- [x] AC-01: `OpenRouterClient` submits through the SubLLM transport when
-  available.
-- [x] AC-02: Hosted Python matrix passes (3.11/3.12).
-
-## Session authorization
-
-Continuation of the 2026-09-16 automation-completion session authorized by
-the repository owner.
+- [x] AC-01: Adopt new-project 0.20.35 governance files.
+- [x] AC-02: Governance checks pass cleanly.

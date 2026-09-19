@@ -220,3 +220,10 @@ self.schemas["myformat"] = FileFormatSchema(
 - Contact maintainers
 
 Thank you for contributing! 🎉
+
+
+```dsl
+DOCUMENT contributing
+VERSION 1
+MODE STRICT
+```
