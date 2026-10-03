@@ -1,0 +1,78 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-002",
+  "summary": "fix password store test isolation with dotenv",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-002/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "tests/unit/test_password_store.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "3f41b339c2b7dc82f196cb5da9c9990ad81a7ee8",
+    "targetBranch": "main",
+    "outcome": "Ensure test_password_store unit tests are isolated from host dotenv environment.",
+    "nonGoals": [
+      "No production credential store changes."
+    ],
+    "complexity": "XS",
+    "estimatedMinutes": 10,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Patch dotenv.load_dotenv in test_scenario_github_login_only to isolate cleared environment",
+      "components": [
+        {
+          "name": "tests",
+          "paths": [
+            "tests/unit/test_password_store.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "git revert"
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "pytest -q tests/unit/test_password_store.py"
+        ],
+        "evidence": "All 31 password store tests pass."
+      },
+      {
+        "criterion": "AC-02",
+        "commands": [
+          "bash project/governance-check.sh --base origin/main --head HEAD"
+        ],
+        "evidence": "governance gate reports GOV-PASS."
+      }
+    ]
+  }
+}

@@ -226,7 +226,7 @@ class TestProviderScenarios:
         creds = [Credential("https://github.com", "github.com", "myuser", "mypass", "firefox")]
         store = self._make_store_with_firefox_creds(creds)
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True), patch("dotenv.load_dotenv"):
             cred = store.get_credentials("github.com")
             assert cred is not None
             assert cred.username == "myuser"
@@ -242,7 +242,7 @@ class TestProviderScenarios:
         """Anthropic: no credentials anywhere → manual login required."""
         store = self._make_store_with_firefox_creds([])
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {}, clear=True), patch("dotenv.load_dotenv"):
             cred = store.get_credentials("anthropic.com")
             assert cred is None
 
