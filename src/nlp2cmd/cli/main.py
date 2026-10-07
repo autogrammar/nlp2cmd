@@ -773,6 +773,12 @@ def analyze_env(ctx, output: Optional[str]):
 # ---------------------------------------------------------------------------
 def cli_entry_point():
     """Entry point that handles natural language queries before Click."""
+    try:
+        from nlp2cmd.autoupdate import check_for_updates
+        check_for_updates("nlp2cmd")
+    except Exception:
+        pass
+
     import sys
     
     # Get command line arguments
