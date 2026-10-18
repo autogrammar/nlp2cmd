@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nlp2cmd"
-version = "1.1.27"
+version = "1.1.28"
 description = "NLP2CMD - Transforms natural language into domain-specific commands (SQL, Shell, Docker, Kubernetes) using a multi-layered detection pipeline and thermodynamic optimization."
 readme = "README.md"
 license = "Apache-2.0"
@@ -57,7 +57,7 @@ dependencies = [
     "psutil>=5.9.0",
     "rapidfuzz>=3.0",
     "nlp2cmd-intent>=0.1.2",
-    "subactor-subllm @ git+https://github.com/subactor/subllm.git@40726bb9399eb5cf9dfc038c1c948b7d2fbdca3b",
+    "subactor-subllm>=0.1.0",
 ]
 
 [project.optional-dependencies]
