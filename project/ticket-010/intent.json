@@ -1,0 +1,77 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-010",
+  "summary": "Repair and verify noVNC desktop runtime",
+  "workstream": "infrastructure",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-010/**",
+    "docker/novnc/Dockerfile",
+    "docker/novnc/docker-compose.yml",
+    "docker/novnc/start-vnc.sh"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [
+    "ticket-009"
+  ],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "7fed40f4267b4df7e337792b1ab43fe583ce0708",
+    "targetBranch": "main",
+    "outcome": "Build and run the noVNC desktop with a valid base pin, non-root browsers, observable startup failures and loopback-only publication; provide the runtime for the separately owned full-demo repair in ticket-011.",
+    "nonGoals": [
+      "No existing desktop access; no unrelated infrastructure or application changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 60,
+    "budgets": {
+      "maxImplementationFiles": 3,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 1
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Keep isolated XFCE, TigerVNC and noVNC; use the distribution Firefox package rather than Snap. Preserve the existing demo endpoint and home directory.",
+      "components": [
+        {
+          "name": "novnc-runtime",
+          "paths": [
+            "docker/novnc/Dockerfile",
+            "docker/novnc/start-vnc.sh",
+            "docker/novnc/docker-compose.yml"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert this runtime commit; no host/user data is migrated."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "docker build -t codex-nlp2cmd-novnc:ticket010 docker/novnc",
+          "docker compose -f docker/novnc/docker-compose.yml config --quiet",
+          "./project/governance-check.sh"
+        ],
+        "evidence": "receipt:novnc-full-20261023/evidence"
+      }
+    ]
+  }
+}

@@ -15,11 +15,10 @@ services:
       dockerfile: Dockerfile
     container_name: nlp2cmd-desktop
     ports:
-      - "6080:6080"   # noVNC web interface
-      - "5901:5901"   # VNC direct connect
+      - "127.0.0.1:6080:6080"   # noVNC web interface (no authentication)
+      - "127.0.0.1:5901:5901"   # VNC direct connect (no authentication)
     environment:
       - VNC_RESOLUTION=1280x800
-      - VNC_PASSWORD=nlp2cmd
       - DISPLAY=:1
     volumes:
       - ./recordings:/home/nlp2cmd/recordings
