@@ -1,0 +1,72 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-012",
+  "summary": "Retire broken metadata trigger after verified central synchronization",
+  "workstream": "governance",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-012/**",
+    ".github/workflows/trigger-org-sync.yml",
+    "README.md"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "6afeffae388e3d38844e5703f51021c00a6f2006",
+    "targetBranch": "main",
+    "outcome": "Retire the unauthenticated consumer trigger after verified central metadata synchronization through semcod/.github; publish via independent Validator.",
+    "nonGoals": [
+      "No credential copying or CI test gate changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 30,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Use the existing centrally authenticated metadata-only schedule after exact-target dry-run/apply/readback verification. Remove the redundant failing consumer dispatch.",
+      "components": [
+        {
+          "name": "metadata-trigger",
+          "paths": [
+            ".github/workflows/trigger-org-sync.yml",
+            "README.md"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Restore the trigger only after preparing its authentication; central synchronization remains available."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "./project/governance-check.sh",
+          "PYTHONPATH=src python3 -m pytest -q tests/unit/test_novnc_demo.py tests/unit/test_media_recorder.py tests/unit/test_executors.py"
+        ],
+        "evidence": "receipt:nlp2cmd-metadata-20261023/evidence"
+      }
+    ]
+  }
+}
