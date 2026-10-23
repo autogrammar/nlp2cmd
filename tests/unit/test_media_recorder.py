@@ -35,6 +35,26 @@ def test_screenshot_directory_failure_is_result(tmp_path):
     assert "Screenshot failed" in result.error
 
 
+@pytest.mark.parametrize("reuse_recorder", [False, True])
+def test_rapid_screenshots_preserve_each_capture(monkeypatch, tmp_path, reuse_recorder):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(media_utils, "get_timestamp", lambda: "20261023_120000")
+    captures = iter([b"first capture", b"second capture"])
+    page = MagicMock()
+    page.screenshot.side_effect = lambda *, path: Path(path).write_bytes(next(captures))
+    ctx = ExecutorContext(page=page)
+    recorder = MediaRecorder()
+
+    first = recorder.take_screenshot({}, ctx)
+    second = (recorder if reuse_recorder else MediaRecorder()).take_screenshot({}, ctx)
+
+    assert first.success and second.success
+    first_path, second_path = Path(first.data["screenshot_path"]), Path(second.data["screenshot_path"])
+    assert first_path != second_path
+    assert first_path.read_bytes() == b"first capture"
+    assert second_path.read_bytes() == b"second capture"
+
+
 def test_second_start_preserves_active_recorder(tmp_path):
     recorder = MediaRecorder()
     ctx = ExecutorContext(video_dir=str(tmp_path))
@@ -189,3 +209,38 @@ def test_video_helper_finalizes_real_playwright_recording(tmp_path):
     assert (stream["width"], stream["height"]) == (640, 480)
     assert float(probe["format"]["duration"]) > 0
     (tmp_path / "verification.json").write_text(json.dumps(probe, indent=2) + "\n")
+
+
+@pytest.mark.e2e
+def test_rapid_screenshots_with_real_playwright(monkeypatch, tmp_path):
+    """Explicit E2E requires an installed Playwright Chromium browser."""
+    import json
+    from playwright.sync_api import sync_playwright
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(media_utils, "get_timestamp", lambda: "20261023_120000")
+    recorder = MediaRecorder()
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            page = browser.new_page(viewport={"width": 640, "height": 480})
+            ctx = ExecutorContext(page=page)
+            page.set_content("<body style='background:red'>First capture</body>")
+            first = recorder.take_screenshot({}, ctx)
+            assert first.success, first.error
+            first_path = Path(first.data["screenshot_path"])
+            first_bytes = first_path.read_bytes()
+            page.set_content("<body style='background:blue'>Second capture</body>")
+            second = recorder.take_screenshot({}, ctx)
+            assert second.success, second.error
+            second_path = Path(second.data["screenshot_path"])
+        finally:
+            browser.close()
+
+    assert first_path != second_path
+    assert first_path.read_bytes() == first_bytes
+    assert first_bytes != second_path.read_bytes()
+    assert all(p.read_bytes().startswith(b"\x89PNG\r\n\x1a\n") for p in (first_path, second_path))
+    (tmp_path / "verification.json").write_text(json.dumps({
+        "first": str(first_path), "second": str(second_path), "firstPreserved": True,
+    }, indent=2) + "\n")

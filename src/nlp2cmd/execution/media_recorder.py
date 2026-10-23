@@ -10,6 +10,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from typing import Any, Optional
+from uuid import uuid4
 
 from nlp2cmd.execution.base import BaseExecutor, ExecutorContext, ExecutorResult
 
@@ -117,7 +118,7 @@ class MediaRecorder(BaseExecutor):
 
         try:
             from nlp2cmd.utils.media_utils import get_timestamp, ensure_dir
-            path = Path(params.get("path") or f"./screenshots/screenshot_{get_timestamp()}.png")
+            path = Path(params.get("path") or f"./screenshots/screenshot_{get_timestamp()}_{uuid4().hex}.png")
             ensure_dir(path.parent)
             path = str(path)
             page.screenshot(path=path)

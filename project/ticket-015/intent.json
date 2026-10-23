@@ -1,0 +1,73 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-015",
+  "summary": "Preserve rapid successive screenshot captures",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-015/**",
+    "src/nlp2cmd/execution/media_recorder.py",
+    "tests/unit/test_media_recorder.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "44873b943a5d78ecf2b07067be6938bbe44b4941",
+    "targetBranch": "main",
+    "outcome": "Automatically named screenshots taken within the same second preserve every capture. Publish through independent protected review.",
+    "nonGoals": [
+      "Do not change explicit screenshot paths, shared timestamp formatting, browser lifecycle or dependencies."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 25,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Add a UUID to automatically generated MediaRecorder screenshot names and test repeated captures with a fixed clock, including real Playwright output.",
+      "components": [
+        {
+          "name": "media-recording",
+          "paths": [
+            "src/nlp2cmd/execution/media_recorder.py",
+            "tests/unit/test_media_recorder.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the source commit and preserve all generated screenshots."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "PYTHONPATH=src python -m pytest -q tests/unit/test_media_recorder.py tests/unit/test_executors.py tests/unit/test_novnc_demo.py",
+          "python -m pytest -m e2e tests/unit/test_media_recorder.py",
+          "./project/governance-check.sh --base origin/main --head HEAD"
+        ],
+        "evidence": "receipt:novnc-screenshot-20261023/evidence"
+      }
+    ]
+  }
+}
