@@ -1,0 +1,83 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-008",
+  "summary": "Refactor noVNC recording lifecycle and repair media handling",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-008/**",
+    "docker/novnc/demos/**",
+    "src/nlp2cmd/execution/media_recorder.py",
+    "tests/unit/test_novnc_demo.py",
+    "tests/unit/test_media_recorder.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [
+    "ticket-007"
+  ],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "f17e8eb2e3caf5b0f7016a4a061367e7563eb312",
+    "targetBranch": "main",
+    "outcome": "Finalize noVNC WebM recording and browser cleanup reliably; repair dependent media output paths and state.",
+    "nonGoals": [
+      "No unrelated product changes or deployment; no access to existing user desktops."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 60,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Finalize noVNC WebM recording and browser cleanup reliably; repair dependent media output paths and state.",
+      "components": [
+        {
+          "name": "novnc-demo",
+          "paths": [
+            "docker/novnc/demos/**",
+            "tests/unit/test_novnc_demo.py"
+          ]
+        },
+        {
+          "name": "media-executor",
+          "paths": [
+            "src/nlp2cmd/execution/media_recorder.py",
+            "tests/unit/test_media_recorder.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket commit; preserve existing recordings."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider tests/unit/test_novnc_demo.py tests/unit/test_media_recorder.py tests/unit/test_executors.py",
+          "./project/governance-check.sh"
+        ],
+        "evidence": "Executed locally; see receipt:novnc-refactor-20261023/evidence."
+      }
+    ]
+  }
+}

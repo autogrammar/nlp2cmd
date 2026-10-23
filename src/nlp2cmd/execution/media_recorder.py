@@ -7,14 +7,11 @@ Extracted from ``pipeline_runner._run_dom_multi_action`` video logic.
 
 from __future__ import annotations
 
-import logging
 import sys
+from pathlib import Path
 from typing import Any, Optional
 
 from nlp2cmd.execution.base import BaseExecutor, ExecutorContext, ExecutorResult
-
-log = logging.getLogger(__name__)
-
 
 class MediaRecorder(BaseExecutor):
     """Manages video recording and screenshots during browser sessions."""
@@ -51,14 +48,17 @@ class MediaRecorder(BaseExecutor):
         ctx: ExecutorContext,
     ) -> ExecutorResult:
         """Start video recording."""
+        if self._recording:
+            return ExecutorResult(success=False, kind="media", error="Recording already active")
         output_dir = params.get("output_dir", ctx.video_dir or self._output_dir)
         name_prefix = params.get("name_prefix", "browser_automation")
 
         try:
-            from nlp2cmd.pipeline_runner_utils import VideoRecorder
-            self._video_recorder = VideoRecorder(output_dir=output_dir)
-            video_path = self._video_recorder.start_recording(name_prefix=name_prefix)
+            from nlp2cmd.utils.media_utils import VideoRecorder
+            recorder = VideoRecorder(output_dir=output_dir)
+            video_path = recorder.start_recording(name_prefix=name_prefix)
             if video_path:
+                self._video_recorder = recorder
                 self._recording = True
                 return ExecutorResult(
                     success=True, kind="media",
@@ -86,11 +86,15 @@ class MediaRecorder(BaseExecutor):
                 data={"recording": False, "note": "No active recording"},
             )
         try:
-            self._video_recorder.stop_recording()
+            video_path = self._video_recorder.stop_recording()
             self._recording = False
+            self._video_recorder = None
+            if not video_path:
+                return ExecutorResult(success=False, kind="media",
+                                      error="VideoRecorder.stop_recording returned no path")
             return ExecutorResult(
                 success=True, kind="media",
-                data={"recording": False, "stopped": True},
+                data={"recording": False, "stopped": True, "video_path": str(video_path)},
             )
         except Exception as e:
             return ExecutorResult(
@@ -111,13 +115,11 @@ class MediaRecorder(BaseExecutor):
                 error="No page available for screenshot",
             )
 
-        path = params.get("path", "")
-        if not path:
-            from nlp2cmd.pipeline_runner_utils import get_timestamp, ensure_dir
-            path = f"./screenshots/screenshot_{get_timestamp()}.png"
-            ensure_dir(path)
-
         try:
+            from nlp2cmd.utils.media_utils import get_timestamp, ensure_dir
+            path = Path(params.get("path") or f"./screenshots/screenshot_{get_timestamp()}.png")
+            ensure_dir(path.parent)
+            path = str(path)
             page.screenshot(path=path)
             return ExecutorResult(
                 success=True, kind="media",
@@ -152,7 +154,7 @@ class MediaRecorder(BaseExecutor):
 
         if confirm and is_tty:
             try:
-                from nlp2cmd.pipeline_runner_utils import ask_for_video_recording
+                from nlp2cmd.utils.media_utils import ask_for_video_recording
                 return ask_for_video_recording(console)
             except Exception:
                 pass
