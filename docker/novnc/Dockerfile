@@ -7,14 +7,14 @@
 #   # Open http://localhost:6080 in browser to see the desktop
 #   # Run: nlp2cmd --run "open calculator and type 2+2"
 
-FROM ubuntu:22.04@sha256:cb287cf26b15fded26828219b268886d76ea3963bc93495425dcf08225c86e9f
+FROM debian:bookworm-slim@sha256:7ff6ba31527b9e336162fa061746c366c4b2032f4d2cff2078bea43f78efe3f8
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:1
 ENV VNC_PORT=5901
 ENV NOVNC_PORT=6080
 ENV VNC_RESOLUTION=1280x800
-ENV VNC_PASSWORD=nlp2cmd
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
 
 # Install desktop environment + VNC + noVNC + common apps
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,8 +26,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     novnc websockify \
     # Common desktop apps for demo
     xterm mousepad thunar galculator \
-    # Firefox for web testing
-    firefox \
+    # Native Firefox package; Ubuntu's transitional package requires Snap
+    firefox-esr \
     # Utilities
     curl wget git sudo procps net-tools xdotool xclip \
     # Screenshot & video recording

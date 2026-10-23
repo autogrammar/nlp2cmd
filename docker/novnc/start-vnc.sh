@@ -1,16 +1,17 @@
 #!/bin/bash
 # Start VNC server + noVNC websocket proxy
+set -euo pipefail
 
 echo "=== NLP2CMD Desktop Environment ==="
 echo "User: $(whoami) | Home: $HOME"
 
 # Create xstartup
-mkdir -p "$HOME/.vnc" || true
+mkdir -p "$HOME/.vnc"
 cat > "$HOME/.vnc/xstartup" << 'XEOF'
 #!/bin/bash
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
-startxfce4
+exec dbus-run-session -- startxfce4
 XEOF
 chmod +x "$HOME/.vnc/xstartup"
 
@@ -34,18 +35,13 @@ sleep 2
 
 # Start noVNC websocket proxy
 echo "Starting noVNC websocket proxy on port $NOVNC_PORT..."
-websockify --web=/usr/share/novnc/ \
-    "$NOVNC_PORT" \
-    "localhost:$VNC_PORT" &
-
 echo ""
-echo "=== Ready ==="
-echo "noVNC:  http://0.0.0.0:$NOVNC_PORT/vnc.html?autoconnect=true&password=$VNC_PASSWORD"
-echo "VNC:    localhost:$VNC_PORT (password: $VNC_PASSWORD)"
+echo "noVNC:  http://localhost:$NOVNC_PORT/vnc.html?autoconnect=true"
+echo "VNC:    localhost:$VNC_PORT (no authentication; loopback publication only)"
 echo ""
 
 # Ensure recordings dir exists
-mkdir -p "$HOME/recordings" || true
+mkdir -p "$HOME/recordings"
 
-# Keep container running
-exec tail -f /dev/null
+# Keep the proxy in the foreground so startup/bind failures stop the container.
+exec websockify --web=/usr/share/novnc/ "$NOVNC_PORT" "localhost:$VNC_PORT"
