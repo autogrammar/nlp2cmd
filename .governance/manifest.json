@@ -41,7 +41,8 @@
           "lib/**",
           "packages/**",
           "test/**",
-          "tests/**"
+          "tests/**",
+          "docker/novnc/demos/**"
         ]
       },
       "governance": {
