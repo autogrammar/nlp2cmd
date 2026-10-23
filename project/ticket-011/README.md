@@ -17,8 +17,9 @@ SESSION_EXECUTION_AUTHORIZATION: user requested continuing, fixing encountered d
 - [x] AC-01: The recorded full scenario calculates 5754, saves the expected document and opens the file manager and Firefox.
 - [x] AC-02: Focused tests and governance pass; startup/failure cleanup behavior is preserved.
 
-Dependency handoff: keep source unchanged while ticket-010 completes independent validation and merge. The current full-demo run is read-only verification; resume IN_PROGRESS after observing that merge.
 
 Prerequisite observed: ticket-010 independently merged in PR23 at d6137da7902baed8c7e2c97954913d0389281b74. Resuming implementation and end-to-end verification, including the analogous save-dialog resolution delay.
 
 Validation: 49 focused tests pass. The new opt-in E2E test passes against a freshly built, unmounted disposable desktop: calculator screenshot OCR confirms 5754; the saved document has the expected text/current date; Firefox is foreground and renders that text; ffprobe validates VP8 WebM at 1280x800. The container is removed in finally. Initial whole-page OCR and filename-based Firefox-title assumptions were corrected against observed screenshots/window behavior. The image and source digests, full recording, logs and verification JSON are preserved in receipt:novnc-full-20261023/evidence. Willman action inspection was repeated after refactoring.
+
+Protected-review correction: explicitly selected E2E tests now fail if the image or required tooling is unavailable; no skip/importorskip shortcut remains. Verified the missing-image failure, 49 focused tests, and a fresh complete E2E pass in 58.55 seconds. Governance is checked against the explicit PR base origin/main so previously merged ticket carriers are historical context.

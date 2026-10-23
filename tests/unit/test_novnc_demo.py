@@ -118,9 +118,7 @@ def test_full_desktop_demo_in_disposable_container(demo, tmp_path):
     The normal unit/CI suite excludes e2e tests via pytest.ini.
     """
     image = os.environ.get("NLP2CMD_NOVNC_TEST_IMAGE")
-    if not image:
-        pytest.skip("Set NLP2CMD_NOVNC_TEST_IMAGE to a built docker/novnc image")
-    pytest.importorskip("playwright.sync_api")
+    assert image, "Set NLP2CMD_NOVNC_TEST_IMAGE to a built docker/novnc image"
     for binary in ("docker", "ffprobe", "tesseract"):
         assert shutil.which(binary), f"The noVNC e2e test requires {binary}"
 
