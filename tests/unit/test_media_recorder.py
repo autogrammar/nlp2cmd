@@ -2,6 +2,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import pytest
+
 from nlp2cmd.execution.base import ExecutorContext
 from nlp2cmd.execution.media_recorder import MediaRecorder
 from nlp2cmd.utils import media_utils
@@ -96,3 +98,94 @@ def test_stop_without_path_is_not_success(monkeypatch):
     recorder.start_recording({}, ExecutorContext())
     assert not recorder.stop_recording({}, ExecutorContext()).success
     assert not recorder.is_recording
+
+
+@pytest.mark.parametrize("output_kind", ["missing", "empty", "directory"])
+@pytest.mark.parametrize("explicit_path", [False, True])
+def test_video_helper_rejects_unsaved_output(tmp_path, output_kind, explicit_path):
+    recorder = media_utils.VideoRecorder(output_dir=tmp_path)
+    expected = Path(recorder.start_recording())
+    output = tmp_path / "actual.webm" if explicit_path else expected
+    if output_kind == "empty":
+        output.touch()
+    elif output_kind == "directory":
+        output.mkdir()
+    console = MagicMock()
+
+    assert recorder.stop_recording(console, saved_path=str(output) if explicit_path else None) is None
+    assert not recorder.is_recording
+    assert not any("Nagranie zapisane" in str(call) for call in console.print.call_args_list)
+
+
+@pytest.mark.parametrize("explicit_path", [False, True])
+def test_video_helper_returns_only_existing_nonempty_output(tmp_path, explicit_path):
+    recorder = media_utils.VideoRecorder(output_dir=tmp_path)
+    expected = Path(recorder.start_recording())
+    output = tmp_path / "actual.webm" if explicit_path else expected
+    output.write_bytes(b"recorded video frames")
+    console = MagicMock()
+
+    assert recorder.stop_recording(console, saved_path=str(output) if explicit_path else None) == str(output)
+    assert not recorder.is_recording
+    assert any("Nagranie zapisane" in str(call) for call in console.print.call_args_list)
+
+
+def test_later_session_cannot_reuse_previous_video(monkeypatch, tmp_path):
+    monkeypatch.setattr(media_utils, "get_timestamp", lambda: "20261023_120000")
+    first = media_utils.VideoRecorder(output_dir=tmp_path)
+    first_path = Path(first.start_recording())
+    first_path.write_bytes(b"earlier session")
+    assert first.stop_recording() == str(first_path)
+
+    second = media_utils.VideoRecorder(output_dir=tmp_path)
+    assert second.start_recording() != str(first_path)
+    assert second.stop_recording() is None
+    assert first_path.read_bytes() == b"earlier session"
+
+
+def test_real_media_executor_does_not_report_nonexistent_video(tmp_path):
+    ctx = ExecutorContext(video_dir=str(tmp_path))
+    recorder = MediaRecorder()
+    assert recorder.start_recording({}, ctx).success
+    result = recorder.stop_recording({}, ctx)
+    assert not result.success
+    assert "video_path" not in result.data
+    assert not recorder.is_recording
+
+
+@pytest.mark.e2e
+def test_video_helper_finalizes_real_playwright_recording(tmp_path):
+    """Explicit E2E requires installed Playwright/Chromium and ffprobe."""
+    import json
+    import shutil
+    import subprocess
+    from playwright.sync_api import sync_playwright
+
+    assert shutil.which("ffprobe"), "The recording E2E requires ffprobe"
+    recorder = media_utils.VideoRecorder(output_dir=tmp_path)
+    output = recorder.start_recording()
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            context = browser.new_context(
+                viewport={"width": 640, "height": 480},
+                record_video_dir=str(tmp_path),
+                record_video_size={"width": 640, "height": 480},
+            )
+            page = context.new_page()
+            page.set_content("<h1>NLP2CMD recording verification</h1>")
+            page.wait_for_timeout(500)
+            video = page.video
+            assert video is not None
+            context.close()
+            video.save_as(output)
+        finally:
+            browser.close()
+    assert recorder.stop_recording(saved_path=output) == output
+    probe = json.loads(subprocess.check_output([
+        "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", output,
+    ], text=True, timeout=30))
+    stream = next(s for s in probe["streams"] if s["codec_type"] == "video")
+    assert (stream["width"], stream["height"]) == (640, 480)
+    assert float(probe["format"]["duration"]) > 0
+    (tmp_path / "verification.json").write_text(json.dumps(probe, indent=2) + "\n")
