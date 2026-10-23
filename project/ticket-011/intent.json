@@ -1,0 +1,75 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-011",
+  "summary": "Repair noVNC desktop application launch sequence",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-011/**",
+    "docker/novnc/demos/demo_desktop_gui.py",
+    "tests/unit/test_novnc_demo.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [
+    "ticket-010"
+  ],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "7fed40f4267b4df7e337792b1ab43fe583ce0708",
+    "targetBranch": "main",
+    "outcome": "Launch each XFCE application only after its command has been resolved, so the recorded demo actually edits and saves its document and opens Firefox.",
+    "nonGoals": [
+      "No remote container shell dependency in the demo; no unrelated application changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 45,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Centralize noVNC keyboard launches, clear stale input and allow XFCE command and GTK save-path resolution before Enter. Display the saved document locally in Firefox and verify the complete sequence in an opt-in disposable-container e2e test.",
+      "components": [
+        {
+          "name": "novnc-demo",
+          "paths": [
+            "docker/novnc/demos/demo_desktop_gui.py",
+            "tests/unit/test_novnc_demo.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the demo commit; existing recordings are preserved."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "docker build -t nlp2cmd-novnc-test docker/novnc && NLP2CMD_NOVNC_TEST_IMAGE=nlp2cmd-novnc-test python3 -m pytest -m e2e tests/unit/test_novnc_demo.py::test_full_desktop_demo_in_disposable_container",
+          "PYTHONPATH=src python3 -m pytest -q tests/unit/test_novnc_demo.py tests/unit/test_media_recorder.py tests/unit/test_executors.py",
+          "./project/governance-check.sh"
+        ],
+        "evidence": "receipt:novnc-full-20261023/evidence"
+      }
+    ]
+  }
+}
