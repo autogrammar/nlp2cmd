@@ -93,7 +93,10 @@
           "Dockerfile*",
           "compose*.yml",
           "compose*.yaml",
-          "infra/**"
+          "infra/**",
+          "docker/novnc/Dockerfile",
+          "docker/novnc/start-vnc.sh",
+          "docker/novnc/docker-compose.yml"
         ]
       },
       "integration": {
