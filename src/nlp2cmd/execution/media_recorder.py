@@ -21,6 +21,8 @@ class MediaRecorder(BaseExecutor):
         self._output_dir = output_dir
         self._video_recorder: Any = None
         self._recording = False
+        self._recording_page: Any = None
+        self._recorded_video: Any = None
 
     @property
     def supported_actions(self) -> list[str]:
@@ -55,12 +57,21 @@ class MediaRecorder(BaseExecutor):
         name_prefix = params.get("name_prefix", "browser_automation")
 
         try:
+            page = ctx.page
+            if page is None or page.is_closed():
+                return ExecutorResult(success=False, kind="media", error="No live page available for recording")
+            video = page.video
+            if video is None:
+                return ExecutorResult(success=False, kind="media",
+                                      error="Create the browser context with record_video_dir before recording")
             from nlp2cmd.utils.media_utils import VideoRecorder
             recorder = VideoRecorder(output_dir=output_dir)
             video_path = recorder.start_recording(name_prefix=name_prefix)
             if video_path:
                 self._video_recorder = recorder
                 self._recording = True
+                self._recording_page = page
+                self._recorded_video = video
                 return ExecutorResult(
                     success=True, kind="media",
                     data={"video_path": str(video_path), "recording": True},
@@ -87,9 +98,16 @@ class MediaRecorder(BaseExecutor):
                 data={"recording": False, "note": "No active recording"},
             )
         try:
+            if not self._recording_page.is_closed():
+                return ExecutorResult(success=False, kind="media",
+                                      error="Close the recorded page or its context before stopping recording")
+            # save_as waits for the page to close, so never call it on a live page.
+            self._recorded_video.save_as(self._video_recorder.video_path)
             video_path = self._video_recorder.stop_recording()
             self._recording = False
             self._video_recorder = None
+            self._recording_page = None
+            self._recorded_video = None
             if not video_path:
                 return ExecutorResult(success=False, kind="media",
                                       error="VideoRecorder.stop_recording returned no path")
