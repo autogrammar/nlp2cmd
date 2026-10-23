@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from uuid import uuid4
 
 
 def ensure_playwright():
@@ -77,7 +78,7 @@ def _launch_desktop_application(page, command, *, startup_ms=2000):
     page.wait_for_timeout(startup_ms)
 
 
-def _run_desktop_steps(page, logger):
+def _run_desktop_steps(page, logger, *, document_path):
     """Perform the demonstration independently of resource management."""
     # --- Step 2: Terminal ---
     print("\n[2/6] Opening terminal...")
@@ -134,13 +135,13 @@ def _run_desktop_steps(page, logger):
     page.keyboard.press("Control+s")
     page.wait_for_timeout(1500)
     page.keyboard.press("Control+a")
-    page.keyboard.type("/home/nlp2cmd/nlp2cmd_report.txt", delay=30)
+    page.keyboard.type(document_path, delay=30)
     # GTK resolves the filename asynchronously before enabling Save.
     page.wait_for_timeout(1000)
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
     logger.step("Saved document via Ctrl+S", page=page, extra={
-        "filename": "/home/nlp2cmd/nlp2cmd_report.txt",
+        "filename": document_path,
     })
 
     # --- Step 5: File manager ---
@@ -153,7 +154,7 @@ def _run_desktop_steps(page, logger):
     # --- Step 6: Firefox ---
     print("\n[6/6] Opening Firefox...")
     # Show the result of this session without depending on an external website.
-    url = "file:///home/nlp2cmd/nlp2cmd_report.txt"
+    url = f"file://{document_path}"
     _launch_desktop_application(page, f"firefox {url}", startup_ms=5000)
     logger.step("Opened Firefox browser", page=page, extra={"url": url})
 
@@ -202,7 +203,8 @@ def run_demo(*, record=False, headless=False, novnc_url="http://localhost:6080",
     """Record the supplied noVNC page as WebM; finalize partial runs on failure.
 
     Playwright records the browser viewport, including the noVNC desktop canvas.
-    Unique Playwright filenames keep previous sessions intact. Docker-side MP4
+    A unique session ID preserves earlier documents, reports and screenshots.
+    Unique Playwright filenames keep previous videos intact. Docker-side MP4
     recording is no longer needed, so --url works with a remote noVNC instance.
     """
     from playwright.sync_api import sync_playwright
@@ -214,7 +216,9 @@ def run_demo(*, record=False, headless=False, novnc_url="http://localhost:6080",
 
     output_dir = Path(output_dir) if output_dir is not None else Path(__file__).resolve().parents[1] / "recordings"
     output_dir.mkdir(parents=True, exist_ok=True)
-    logger = SessionLogger("desktop_gui_demo", output_dir=output_dir, thumbnail_width=256)
+    session_id = uuid4().hex
+    document_path = f"/home/nlp2cmd/nlp2cmd_report_{session_id}.txt"
+    logger = SessionLogger(f"desktop_gui_demo_{session_id}", output_dir=output_dir, thumbnail_width=256)
     logger.start("NLP2CMD Desktop GUI Automation Demo", description="XFCE via noVNC + Playwright")
     completed = False
     capture = {}
@@ -227,7 +231,7 @@ def run_demo(*, record=False, headless=False, novnc_url="http://localhost:6080",
                 page.wait_for_selector("canvas", state="visible", timeout=15000)
                 page.locator("canvas").focus()
                 logger.step("Connected to desktop via noVNC", page=page, extra={"url": novnc_url})
-                _run_desktop_steps(page, logger)
+                _run_desktop_steps(page, logger, document_path=document_path)
         completed = True
     except Exception as error:
         logger.warning(f"Demo failed: {error}")

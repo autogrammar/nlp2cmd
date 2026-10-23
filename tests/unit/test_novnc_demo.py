@@ -1,5 +1,6 @@
 """Behavioral tests for demo resource ownership and real video finalization."""
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -109,6 +110,25 @@ def test_cli_failure_returns_nonzero(demo, monkeypatch):
     assert demo.main() == 1
 
 
+
+def test_repeated_runs_preserve_session_reports(demo, session, monkeypatch):
+    path = Path(__file__).resolve().parents[2] / "src/nlp2cmd/cli/session_logger.py"
+    spec = importlib.util.spec_from_file_location("real_session_logger", path)
+    logger_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(logger_module)
+    monkeypatch.setitem(sys.modules, "nlp2cmd.cli.session_logger", logger_module)
+    session.page.screenshot.return_value = None
+
+    demo.run_demo(output_dir=session.directory)
+    first_report = next(session.directory.glob("*.md"))
+    original = first_report.read_bytes()
+    demo.run_demo(output_dir=session.directory)
+
+    assert len(list(session.directory.glob("*.md"))) == 2
+    assert first_report.read_bytes() == original
+    assert len(list(session.directory.glob("*_screenshots"))) == 2
+
+
 @pytest.mark.e2e
 def test_full_desktop_demo_in_disposable_container(demo, tmp_path):
     """Run with NLP2CMD_NOVNC_TEST_IMAGE=<built image> and pytest -m e2e.
@@ -132,40 +152,70 @@ def test_full_desktop_demo_in_disposable_container(demo, tmp_path):
     ).strip()
     try:
         port = command("docker", "port", container, "6080/tcp").strip().split(":")[-1]
-        video = demo.run_demo(record=True, headless=True,
-                              novnc_url=f"http://127.0.0.1:{port}", output_dir=tmp_path)
-        document = command("docker", "exec", container, "cat",
-                           "/home/nlp2cmd/nlp2cmd_report.txt")
-        assert "NLP2CMD Desktop Automation Report" in document
-        assert "This document was created autonomously by NLP2CMD." in document
-        assert f"Date: {demo.date.today().isoformat()}" in document
-        processes = command("docker", "exec", container, "ps", "-eo", "comm").lower()
-        assert all(name in processes for name in ("galculator", "mousepad", "thunar", "firefox"))
+        legacy_path = "/home/nlp2cmd/nlp2cmd_report.txt"
+        legacy_document = "Existing presentation: preserve this document."
+        subprocess.run(["docker", "exec", "-i", container, "tee", legacy_path],
+                       input=legacy_document, text=True, capture_output=True,
+                       check=True, timeout=30)
+        previous_documents, previous_screenshots, videos = set(), set(), set()
+        previous_artifacts, verifications = {}, []
+        previous_document_path, previous_document = None, None
+        for run in range(2):
+            video = demo.run_demo(record=True, headless=True,
+                                  novnc_url=f"http://127.0.0.1:{port}", output_dir=tmp_path)
+            documents = set(command("docker", "exec", container, "find", "/home/nlp2cmd",
+                                    "-maxdepth", "1", "-name", "nlp2cmd_report_*.txt").splitlines())
+            new_documents = documents - previous_documents
+            assert len(new_documents) == 1, "Each run must save its own desktop document"
+            document_path = new_documents.pop()
+            document = command("docker", "exec", container, "cat", document_path)
+            previous_documents = documents
+            assert command("docker", "exec", container, "cat", legacy_path) == legacy_document
+            if previous_document_path:
+                assert command("docker", "exec", container, "cat", previous_document_path) == previous_document
+            previous_document_path, previous_document = document_path, document
+            assert "NLP2CMD Desktop Automation Report" in document
+            assert "This document was created autonomously by NLP2CMD." in document
+            assert f"Date: {demo.date.today().isoformat()}" in document
+            processes = command("docker", "exec", container, "ps", "-eo", "comm").lower()
+            assert all(name in processes for name in ("galculator", "mousepad", "thunar", "firefox"))
 
-        screenshots = tmp_path / "desktop_gui_demo_screenshots"
-        calculator = next(screenshots.glob("*entered_calculation*.png"))
-        # Desktop screenshots contain separate text regions, not a document page.
-        calculator_text = command("tesseract", str(calculator), "stdout", "--psm", "11")
-        assert "5754" in re.sub(r"\s|,", "", calculator_text)
-        final = next(screenshots.glob("*final_desktop_state.png"))
-        browser_text = command("tesseract", str(final), "stdout", "--psm", "11")
-        assert "thisdocumentwascreatedautonomouslyby" in re.sub(r"\W", "", browser_text.lower())
-        # Firefox can retain its generic window title for a local text file.
-        # Verify it is foreground; OCR above independently verifies the content.
-        browser_title = command("docker", "exec", container, "xdotool",
-                                "getactivewindow", "getwindowname")
-        assert "Mozilla Firefox" in browser_title
+            screenshot_dirs = set(tmp_path.glob("desktop_gui_demo_*_screenshots"))
+            new_screenshots = screenshot_dirs - previous_screenshots
+            assert len(new_screenshots) == 1
+            screenshots = new_screenshots.pop()
+            previous_screenshots = screenshot_dirs
+            calculator = next(screenshots.glob("*entered_calculation*.png"))
+            # Desktop screenshots contain separate text regions, not a document page.
+            calculator_text = command("tesseract", str(calculator), "stdout", "--psm", "11")
+            assert "5754" in re.sub(r"\s|,", "", calculator_text)
+            final = next(screenshots.glob("*final_desktop_state.png"))
+            browser_text = command("tesseract", str(final), "stdout", "--psm", "11")
+            assert "thisdocumentwascreatedautonomouslyby" in re.sub(r"\W", "", browser_text.lower())
+            # Firefox can retain its generic window title for a local text file.
+            # Verify it is foreground; OCR above independently verifies the content.
+            browser_title = command("docker", "exec", container, "xdotool",
+                                    "getactivewindow", "getwindowname")
+            assert "Mozilla Firefox" in browser_title
 
-        probe = json.loads(command("ffprobe", "-v", "error", "-show_streams",
-                                   "-show_format", "-of", "json", str(video)))
-        stream = next(s for s in probe["streams"] if s["codec_type"] == "video")
-        assert (stream["width"], stream["height"]) == (1280, 800)
-        assert float(probe["format"]["duration"]) > 30
-        (tmp_path / "verification.json").write_text(json.dumps({
-            "video": str(video), "document": document, "browserTitle": browser_title,
-            "calculatorOCR": calculator_text, "browserOCR": browser_text, "probe": probe,
-            "image": command("docker", "inspect", "--format", "{{.Image}}", container).strip(),
-        }, indent=2) + "\n")
+            probe = json.loads(command("ffprobe", "-v", "error", "-show_streams",
+                                       "-show_format", "-of", "json", str(video)))
+            stream = next(s for s in probe["streams"] if s["codec_type"] == "video")
+            assert (stream["width"], stream["height"]) == (1280, 800)
+            assert float(probe["format"]["duration"]) > 30
+            assert video not in videos
+            videos.add(video)
+            assert len(list(tmp_path.glob("*.md"))) == run + 1
+            for artifact, digest in previous_artifacts.items():
+                assert hashlib.sha256(artifact.read_bytes()).hexdigest() == digest
+            previous_artifacts = {p: hashlib.sha256(p.read_bytes()).hexdigest()
+                                  for p in tmp_path.rglob("*") if p.is_file()}
+            verifications.append({"documentPath": document_path,
+                "video": str(video), "document": document, "browserTitle": browser_title,
+                "calculatorOCR": calculator_text, "browserOCR": browser_text, "probe": probe,
+                "image": command("docker", "inspect", "--format", "{{.Image}}", container).strip(),
+            })
+        (tmp_path / "verification.json").write_text(json.dumps(verifications, indent=2) + "\n")
     finally:
         try:
             logs = subprocess.run(["docker", "logs", container], capture_output=True,

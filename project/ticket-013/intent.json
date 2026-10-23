@@ -1,0 +1,74 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-013",
+  "summary": "Preserve artifacts across repeated noVNC presentations",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-013/**",
+    "docker/novnc/demos/demo_desktop_gui.py",
+    "tests/unit/test_novnc_demo.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "74949be4919c1da0d2338bda715545e9a7e07199",
+    "targetBranch": "main",
+    "outcome": "Repeated noVNC demos save separate desktop documents, Markdown reports, screenshots and videos; publish through the independent Validator.",
+    "nonGoals": [
+      "Do not overwrite existing desktop documents or change shared SessionLogger behavior.",
+      "No daemon deployment or unrelated dependency changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 45,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "components": [
+        {
+          "name": "novnc-demo",
+          "paths": [
+            "docker/novnc/demos/demo_desktop_gui.py",
+            "tests/unit/test_novnc_demo.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the demo commit; keep all generated session artifacts.",
+      "status": "accepted",
+      "decision": "Create one UUID per presentation and use it in desktop document and local SessionLogger names; verify two recordings on one disposable desktop while preserving existing files."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "PYTHONPATH=src python -m pytest -q tests/unit/test_novnc_demo.py tests/unit/test_media_recorder.py tests/unit/test_executors.py",
+          "NLP2CMD_NOVNC_TEST_IMAGE=codex-nlp2cmd-novnc:ticket011 python -m pytest -m e2e tests/unit/test_novnc_demo.py::test_full_desktop_demo_in_disposable_container",
+          "./project/governance-check.sh"
+        ],
+        "evidence": "receipt:novnc-repeat-20261023/evidence"
+      }
+    ]
+  }
+}
