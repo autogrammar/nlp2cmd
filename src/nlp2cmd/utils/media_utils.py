@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+from uuid import uuid4
 
 
 def get_timestamp() -> str:
@@ -100,7 +101,7 @@ class VideoRecorder:
         """
         try:
             timestamp = get_timestamp()
-            self.video_path = str(self.output_dir / f"{name_prefix}_{timestamp}.webm")
+            self.video_path = str(self.output_dir / f"{name_prefix}_{timestamp}_{uuid4().hex}.webm")
             self.is_recording = True
             
             # Ensure directory exists
@@ -113,7 +114,7 @@ class VideoRecorder:
     
     def stop_recording(self, console: Optional[Any] = None, saved_path: Optional[str] = None) -> Optional[str]:
         """
-        Stop recording and return video path.
+        Finalize recording and return only a nonempty saved video file.
         
         Args:
             console: Optional console for output
@@ -128,6 +129,11 @@ class VideoRecorder:
         try:
             if saved_path:
                 self.video_path = str(saved_path)
+            output = Path(self.video_path) if self.video_path else None
+            if output is None or not output.is_file() or output.stat().st_size == 0:
+                if console:
+                    console.print(f"[red]❌ Brak niepustego pliku nagrania: {self.video_path}[/red]")
+                return None
             if console and self.video_path:
                 console.print(f"[green]🎥 Nagranie zapisane: {self.video_path}[/green]")
             return self.video_path

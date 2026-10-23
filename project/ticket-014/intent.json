@@ -1,0 +1,74 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-014",
+  "summary": "Reject missing and empty video recording outputs",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-014/**",
+    "src/nlp2cmd/utils/media_utils.py",
+    "tests/unit/test_media_recorder.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "306eb550c9d585932a80daf86a74d3630e9666b8",
+    "targetBranch": "main",
+    "outcome": "Only report recording success for a nonempty saved video file, preserve accurate executor failure results, and prevent earlier videos from satisfying a later unsaved session. Publish through independent protected review.",
+    "nonGoals": [
+      "No video encoder implementation or browser lifecycle change.",
+      "No unrelated daemon, governance or dependency changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 35,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Validate the candidate output at VideoRecorder finalization and generate unique expected filenames per session; all existing callers keep the same Optional[str] result.",
+      "components": [
+        {
+          "name": "media-recording",
+          "paths": [
+            "src/nlp2cmd/utils/media_utils.py",
+            "tests/unit/test_media_recorder.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the source commit and preserve generated recordings."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "PYTHONPATH=src python -m pytest -q tests/unit/test_media_recorder.py tests/unit/test_executors.py tests/unit/test_novnc_demo.py",
+          "python -m pytest -m e2e tests/unit/test_media_recorder.py",
+          "./project/governance-check.sh --base origin/main --head HEAD"
+        ],
+        "evidence": "receipt:novnc-media-20261023/evidence"
+      }
+    ]
+  }
+}
