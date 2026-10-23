@@ -503,6 +503,16 @@ pytest tests/e2e/ -v                # End-to-end tests
 pytest --cov=nlp2cmd --cov-report=html  # With coverage
 ```
 
+## Repository metadata maintenance
+
+Repository descriptions and topics are synchronized by the central
+[`semcod/.github` coordinator](https://github.com/semcod/.github/blob/main/docs/information/org-metadata-sync.md).
+`autogrammar/nlp2cmd` is explicitly enrolled in its six-hour schedule, subject to
+GitHub queue delays. For an immediate refresh, use the coordinator's documented
+manual workflow with the full target `autogrammar/nlp2cmd`. Credentials stay in
+the coordinator; this repository does not need an `ORG_SYNC_PAT` dispatch trigger.
+The metadata-only route preserves the homepage and Pages configuration.
+
 ## Documentation
 
 | Document | Description |
