@@ -1,0 +1,72 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-007",
+  "summary": "Assign existing noVNC Python demo scripts to the application workstream",
+  "workstream": "governance",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-007/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    ".governance/manifest.json"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "f17e8eb2e3caf5b0f7016a4a061367e7563eb312",
+    "targetBranch": "main",
+    "outcome": "Assign existing noVNC demo scripts to application ownership for bounded recording repairs.",
+    "nonGoals": [
+      "No unrelated product changes or deployment; no access to existing user desktops."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 60,
+    "budgets": {
+      "maxImplementationFiles": 5,
+      "maxAffectedComponents": 2,
+      "maxPublicInterfaceChanges": 1,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Assign existing noVNC demo scripts to application ownership for bounded recording repairs.",
+      "components": [
+        {
+          "name": "scope-registry",
+          "paths": [
+            ".governance/manifest.json"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Revert the ticket commit; preserve existing recordings."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "python3 .governance/ticket_storage.py scope --root . --workstream application --path docker/novnc/demos/**",
+          "./project/governance-check.sh"
+        ],
+        "evidence": "Executed locally; see receipt:novnc-refactor-20261023/evidence."
+      }
+    ]
+  }
+}
