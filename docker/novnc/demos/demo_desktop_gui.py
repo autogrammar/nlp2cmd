@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import ExitStack, contextmanager
+from datetime import date
 import subprocess
 import sys
 import time
@@ -64,6 +65,18 @@ def _connect_novnc(page, novnc_url: str, logger) -> bool:
     return False
 
 
+def _launch_desktop_application(page, command, *, startup_ms=2000):
+    """Allow XFCE's asynchronous command lookup to enable the launch action."""
+    page.keyboard.press("Alt+F2")
+    page.wait_for_timeout(1000)
+    page.keyboard.press("Control+a")
+    page.keyboard.type(command, delay=50)
+    # Enter sent immediately after typing can be ignored by Application Finder.
+    page.wait_for_timeout(1000)
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(startup_ms)
+
+
 def _run_desktop_steps(page, logger):
     """Perform the demonstration independently of resource management."""
     # --- Step 2: Terminal ---
@@ -101,17 +114,13 @@ def _run_desktop_steps(page, logger):
 
     # --- Step 4: Text editor ---
     print("\n[4/6] Opening text editor...")
-    page.keyboard.press("Alt+F2")
-    page.wait_for_timeout(1000)
-    page.keyboard.type("mousepad", delay=50)
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(2000)
+    _launch_desktop_application(page, "mousepad")
     logger.step("Opened Mousepad text editor (Alt+F2)", page=page)
 
     doc_text = (
         "NLP2CMD Desktop Automation Report\n"
         "==================================\n\n"
-        "Date: 2026-02-27\n"
+        f"Date: {date.today().isoformat()}\n"
         "System: Linux (XFCE via noVNC)\n\n"
         "This document was created autonomously by NLP2CMD.\n"
     )
@@ -124,7 +133,10 @@ def _run_desktop_steps(page, logger):
     print("  Saving (Ctrl+S)...")
     page.keyboard.press("Control+s")
     page.wait_for_timeout(1500)
+    page.keyboard.press("Control+a")
     page.keyboard.type("/home/nlp2cmd/nlp2cmd_report.txt", delay=30)
+    # GTK resolves the filename asynchronously before enabling Save.
+    page.wait_for_timeout(1000)
     page.keyboard.press("Enter")
     page.wait_for_timeout(1000)
     logger.step("Saved document via Ctrl+S", page=page, extra={
@@ -133,23 +145,16 @@ def _run_desktop_steps(page, logger):
 
     # --- Step 5: File manager ---
     print("\n[5/6] Opening file manager...")
-    page.keyboard.press("Alt+F2")
-    page.wait_for_timeout(1000)
-    page.keyboard.type("thunar /home/nlp2cmd", delay=50)
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(2000)
+    _launch_desktop_application(page, "thunar /home/nlp2cmd")
     logger.step("Opened Thunar file manager", page=page, extra={
         "path": "/home/nlp2cmd",
     })
 
     # --- Step 6: Firefox ---
     print("\n[6/6] Opening Firefox...")
-    page.keyboard.press("Alt+F2")
-    page.wait_for_timeout(1000)
-    url = "https://github.com/wronai/nlp2cmd"
-    page.keyboard.type(f"firefox {url}", delay=30)
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(5000)
+    # Show the result of this session without depending on an external website.
+    url = "file:///home/nlp2cmd/nlp2cmd_report.txt"
+    _launch_desktop_application(page, f"firefox {url}", startup_ms=5000)
     logger.step("Opened Firefox browser", page=page, extra={"url": url})
 
     # --- Final ---

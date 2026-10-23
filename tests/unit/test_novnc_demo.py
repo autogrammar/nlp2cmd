@@ -1,6 +1,11 @@
 """Behavioral tests for demo resource ownership and real video finalization."""
 import importlib.util
+import json
+import os
 from pathlib import Path
+import re
+import shutil
+import subprocess
 import sys
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -102,3 +107,69 @@ def test_cli_failure_returns_nonzero(demo, monkeypatch):
     monkeypatch.setattr(demo, "ensure_playwright", lambda: True)
     monkeypatch.setattr(demo, "run_demo", MagicMock(side_effect=RuntimeError("failed")))
     assert demo.main() == 1
+
+
+@pytest.mark.e2e
+def test_full_desktop_demo_in_disposable_container(demo, tmp_path):
+    """Run with NLP2CMD_NOVNC_TEST_IMAGE=<built image> and pytest -m e2e.
+
+    Creates its own desktop with no host mounts and a dynamically allocated
+    loopback port. Requires Docker, Playwright/Chromium, FFmpeg and Tesseract.
+    The normal unit/CI suite excludes e2e tests via pytest.ini.
+    """
+    image = os.environ.get("NLP2CMD_NOVNC_TEST_IMAGE")
+    assert image, "Set NLP2CMD_NOVNC_TEST_IMAGE to a built docker/novnc image"
+    for binary in ("docker", "ffprobe", "tesseract"):
+        assert shutil.which(binary), f"The noVNC e2e test requires {binary}"
+
+    def command(*args):
+        return subprocess.run(args, check=True, capture_output=True, text=True,
+                              timeout=30).stdout
+
+    container = command(
+        "docker", "run", "--pull=never", "-d", "--memory", "2g", "--cpus", "2",
+        "--shm-size", "512m", "-p", "127.0.0.1::6080", image,
+    ).strip()
+    try:
+        port = command("docker", "port", container, "6080/tcp").strip().split(":")[-1]
+        video = demo.run_demo(record=True, headless=True,
+                              novnc_url=f"http://127.0.0.1:{port}", output_dir=tmp_path)
+        document = command("docker", "exec", container, "cat",
+                           "/home/nlp2cmd/nlp2cmd_report.txt")
+        assert "NLP2CMD Desktop Automation Report" in document
+        assert "This document was created autonomously by NLP2CMD." in document
+        assert f"Date: {demo.date.today().isoformat()}" in document
+        processes = command("docker", "exec", container, "ps", "-eo", "comm").lower()
+        assert all(name in processes for name in ("galculator", "mousepad", "thunar", "firefox"))
+
+        screenshots = tmp_path / "desktop_gui_demo_screenshots"
+        calculator = next(screenshots.glob("*entered_calculation*.png"))
+        # Desktop screenshots contain separate text regions, not a document page.
+        calculator_text = command("tesseract", str(calculator), "stdout", "--psm", "11")
+        assert "5754" in re.sub(r"\s|,", "", calculator_text)
+        final = next(screenshots.glob("*final_desktop_state.png"))
+        browser_text = command("tesseract", str(final), "stdout", "--psm", "11")
+        assert "thisdocumentwascreatedautonomouslyby" in re.sub(r"\W", "", browser_text.lower())
+        # Firefox can retain its generic window title for a local text file.
+        # Verify it is foreground; OCR above independently verifies the content.
+        browser_title = command("docker", "exec", container, "xdotool",
+                                "getactivewindow", "getwindowname")
+        assert "Mozilla Firefox" in browser_title
+
+        probe = json.loads(command("ffprobe", "-v", "error", "-show_streams",
+                                   "-show_format", "-of", "json", str(video)))
+        stream = next(s for s in probe["streams"] if s["codec_type"] == "video")
+        assert (stream["width"], stream["height"]) == (1280, 800)
+        assert float(probe["format"]["duration"]) > 30
+        (tmp_path / "verification.json").write_text(json.dumps({
+            "video": str(video), "document": document, "browserTitle": browser_title,
+            "calculatorOCR": calculator_text, "browserOCR": browser_text, "probe": probe,
+            "image": command("docker", "inspect", "--format", "{{.Image}}", container).strip(),
+        }, indent=2) + "\n")
+    finally:
+        try:
+            logs = subprocess.run(["docker", "logs", container], capture_output=True,
+                                  text=True, timeout=15)
+            (tmp_path / "container.log").write_text(logs.stdout + logs.stderr)
+        finally:
+            command("docker", "rm", "-f", container)
