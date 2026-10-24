@@ -1,0 +1,74 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-016",
+  "summary": "Bind media recording to actual Playwright video output",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-016/**",
+    "src/nlp2cmd/execution/media_recorder.py",
+    "tests/unit/test_media_recorder.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "99a20a0bad43bd4d496aa0136e86a3a9dab16bef",
+    "targetBranch": "main",
+    "outcome": "Report recording only when a live Playwright page has video enabled, then save and verify its finalized WebM after the caller closes that page. Publish after required tests and independent review.",
+    "nonGoals": [
+      "Do not create or close shared browser pages/contexts, enable video retroactively, alter noVNC setup or change dependencies."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 35,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Bind the existing media executor to page.video. Refuse missing/unconfigured/closed pages at start, refuse finalization while the page is open, and use video.save_as before validating the real output through VideoRecorder. Preserve owned state on retryable save errors.",
+      "components": [
+        {
+          "name": "media-recording",
+          "paths": [
+            "src/nlp2cmd/execution/media_recorder.py",
+            "tests/unit/test_media_recorder.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Protected revert of this implementation while preserving recorded artifacts."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "Focused media/executor/noVNC unit tests",
+          "Real Playwright WebM test and ffprobe",
+          "Managed governance and required CI matrix",
+          "Independent exact-head Validator publication"
+        ],
+        "evidence": "receipt:media-lifecycle-20261024/evidence"
+      }
+    ]
+  }
+}

@@ -9,6 +9,79 @@ from nlp2cmd.execution.media_recorder import MediaRecorder
 from nlp2cmd.utils import media_utils
 
 
+@pytest.fixture
+def recording_context(tmp_path):
+    page = MagicMock()
+    page.is_closed.return_value = False
+    return ExecutorContext(page=page, video_dir=str(tmp_path))
+
+
+@pytest.mark.parametrize("page_state", ["missing", "unconfigured", "closed"])
+def test_start_requires_live_video_enabled_page(tmp_path, page_state):
+    page = None if page_state == "missing" else MagicMock()
+    if page is not None:
+        page.is_closed.return_value = page_state == "closed"
+        if page_state == "unconfigured":
+            page.video = None
+    recorder = MediaRecorder()
+
+    result = recorder.start_recording({}, ExecutorContext(page=page, video_dir=str(tmp_path)))
+
+    assert not result.success
+    assert not recorder.is_recording
+    assert recorder._video_recorder is None
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_stop_saves_bound_video_only_after_its_page_closes(tmp_path):
+    page = MagicMock()
+    page.is_closed.return_value = False
+    page.video.save_as.side_effect = lambda path: Path(path).write_bytes(b"saved video")
+    context = MagicMock()
+    ctx = ExecutorContext(page=page, context=context, video_dir=str(tmp_path))
+    recorder = MediaRecorder()
+    started = recorder.start_recording({}, ctx)
+    assert started.success
+
+    premature = recorder.stop_recording({}, ctx)
+
+    assert not premature.success
+    assert recorder.is_recording
+    page.video.save_as.assert_not_called()
+    page.close.assert_not_called()
+    context.close.assert_not_called()
+    page.is_closed.return_value = True
+    other_page = MagicMock()
+    stopped = recorder.stop_recording({}, ExecutorContext(page=other_page))
+    assert stopped.success, stopped.error
+    output = Path(stopped.data["video_path"])
+    assert str(output) == started.data["video_path"]
+    assert output.read_bytes() == b"saved video"
+    page.video.save_as.assert_called_once_with(str(output))
+    other_page.video.save_as.assert_not_called()
+    assert not recorder.is_recording
+
+
+def test_video_save_failure_can_retry_without_losing_bound_handle(tmp_path):
+    page = MagicMock()
+    page.is_closed.return_value = False
+    ctx = ExecutorContext(page=page, video_dir=str(tmp_path))
+    recorder = MediaRecorder()
+    assert recorder.start_recording({}, ctx).success
+    page.is_closed.return_value = True
+    page.video.save_as.side_effect = OSError("temporary save failure")
+
+    failed = recorder.stop_recording({}, ctx)
+
+    assert not failed.success
+    assert recorder.is_recording
+    page.video.save_as.side_effect = lambda path: Path(path).write_bytes(b"retried video")
+    retried = recorder.stop_recording({}, ctx)
+    assert retried.success, retried.error
+    assert Path(retried.data["video_path"]).read_bytes() == b"retried video"
+    assert not recorder.is_recording
+
+
 def test_default_screenshot_creates_parent_and_file(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     page = MagicMock()
@@ -55,9 +128,9 @@ def test_rapid_screenshots_preserve_each_capture(monkeypatch, tmp_path, reuse_re
     assert second_path.read_bytes() == b"second capture"
 
 
-def test_second_start_preserves_active_recorder(tmp_path):
+def test_second_start_preserves_active_recorder(recording_context):
     recorder = MediaRecorder()
-    ctx = ExecutorContext(video_dir=str(tmp_path))
+    ctx = recording_context
     assert recorder.start_recording({}, ctx).success
     active = recorder._video_recorder
     assert not recorder.start_recording({}, ctx).success
@@ -65,15 +138,16 @@ def test_second_start_preserves_active_recorder(tmp_path):
     assert recorder.is_recording
 
 
-def test_stop_returns_backend_output_and_clears_state(monkeypatch):
+def test_stop_returns_backend_output_and_clears_state(monkeypatch, recording_context):
     backend = MagicMock()
     backend.start_recording.return_value = "expected.webm"
     backend.stop_recording.return_value = "actual.webm"
     monkeypatch.setattr(media_utils.VideoRecorder, "start_recording", backend.start_recording)
     monkeypatch.setattr(media_utils.VideoRecorder, "stop_recording", backend.stop_recording)
     recorder = MediaRecorder()
-    ctx = ExecutorContext()
+    ctx = recording_context
     assert recorder.start_recording({}, ctx).success
+    ctx.page.is_closed.return_value = True
     result = recorder.stop_recording({}, ctx)
     assert result.success
     assert result.data["video_path"] == "actual.webm"
@@ -83,40 +157,42 @@ def test_stop_returns_backend_output_and_clears_state(monkeypatch):
     backend.stop_recording.assert_called_once()
 
 
-def test_failed_start_can_retry(monkeypatch):
+def test_failed_start_can_retry(monkeypatch, recording_context):
     backend = MagicMock()
     backend.start_recording.side_effect = [None, "capture.webm"]
     monkeypatch.setattr(media_utils.VideoRecorder, "start_recording", backend.start_recording)
     monkeypatch.setattr(media_utils.VideoRecorder, "stop_recording", backend.stop_recording)
     recorder = MediaRecorder()
-    assert not recorder.start_recording({}, ExecutorContext()).success
+    assert not recorder.start_recording({}, recording_context).success
     assert not recorder.is_recording
     assert recorder._video_recorder is None
-    assert recorder.start_recording({}, ExecutorContext()).success
+    assert recorder.start_recording({}, recording_context).success
 
 
-def test_failed_stop_retains_handle_for_retry(monkeypatch):
+def test_failed_stop_retains_handle_for_retry(monkeypatch, recording_context):
     backend = MagicMock()
     backend.start_recording.return_value = "capture.webm"
     backend.stop_recording.side_effect = [RuntimeError("busy"), "capture.webm"]
     monkeypatch.setattr(media_utils.VideoRecorder, "start_recording", backend.start_recording)
     monkeypatch.setattr(media_utils.VideoRecorder, "stop_recording", backend.stop_recording)
     recorder = MediaRecorder()
-    recorder.start_recording({}, ExecutorContext())
-    assert not recorder.stop_recording({}, ExecutorContext()).success
+    recorder.start_recording({}, recording_context)
+    recording_context.page.is_closed.return_value = True
+    assert not recorder.stop_recording({}, recording_context).success
     assert recorder.is_recording
-    assert recorder.stop_recording({}, ExecutorContext()).success
+    assert recorder.stop_recording({}, recording_context).success
 
 
-def test_stop_without_path_is_not_success(monkeypatch):
+def test_stop_without_path_is_not_success(monkeypatch, recording_context):
     backend = MagicMock()
     backend.start_recording.return_value = "capture.webm"
     backend.stop_recording.return_value = None
     monkeypatch.setattr(media_utils.VideoRecorder, "start_recording", backend.start_recording)
     monkeypatch.setattr(media_utils.VideoRecorder, "stop_recording", backend.stop_recording)
     recorder = MediaRecorder()
-    recorder.start_recording({}, ExecutorContext())
-    assert not recorder.stop_recording({}, ExecutorContext()).success
+    recorder.start_recording({}, recording_context)
+    recording_context.page.is_closed.return_value = True
+    assert not recorder.stop_recording({}, recording_context).success
     assert not recorder.is_recording
 
 
@@ -163,14 +239,54 @@ def test_later_session_cannot_reuse_previous_video(monkeypatch, tmp_path):
     assert first_path.read_bytes() == b"earlier session"
 
 
-def test_real_media_executor_does_not_report_nonexistent_video(tmp_path):
-    ctx = ExecutorContext(video_dir=str(tmp_path))
+def test_real_media_executor_does_not_report_nonexistent_video(recording_context):
+    ctx = recording_context
     recorder = MediaRecorder()
     assert recorder.start_recording({}, ctx).success
+    ctx.page.is_closed.return_value = True
     result = recorder.stop_recording({}, ctx)
     assert not result.success
     assert "video_path" not in result.data
     assert not recorder.is_recording
+
+
+@pytest.mark.e2e
+def test_media_executor_saves_real_playwright_video(tmp_path):
+    import json
+    import subprocess
+    from playwright.sync_api import sync_playwright
+
+    recorder = MediaRecorder(output_dir=str(tmp_path / "saved"))
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            context = browser.new_context(**recorder.get_context_options(video_fmt="webm"))
+            page = context.new_page()
+            ctx = ExecutorContext(page=page, context=context, video_dir=str(tmp_path / "saved"))
+            page.set_content("<h1>Real media executor recording</h1>")
+            started = recorder.start_recording({}, ctx)
+            assert started.success, started.error
+            page.wait_for_timeout(500)
+            premature = recorder.stop_recording({}, ctx)
+            assert not premature.success and not page.is_closed()
+            page.close()
+            stopped = recorder.stop_recording({}, ctx)
+            assert stopped.success, stopped.error
+            context.close()
+        finally:
+            browser.close()
+
+    output = Path(stopped.data["video_path"])
+    assert str(output) == started.data["video_path"]
+    assert output.is_file() and output.stat().st_size > 0
+    probe = json.loads(subprocess.check_output([
+        "ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(output),
+    ], text=True, timeout=30))
+    stream = next(s for s in probe["streams"] if s["codec_type"] == "video")
+    assert (stream["width"], stream["height"]) == (1280, 720)
+    assert float(probe["format"]["duration"]) > 0
+    assert not recorder.is_recording
+    (tmp_path / "verification.json").write_text(json.dumps(probe, indent=2) + "\n")
 
 
 @pytest.mark.e2e
