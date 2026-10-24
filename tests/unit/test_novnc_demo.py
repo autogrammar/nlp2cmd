@@ -122,7 +122,8 @@ def test_firefox_readiness_waits_for_current_url_and_current_report(demo, clipbo
     demo._wait_for_firefox_report(page, path, timeout_ms=5000)
     assert page.evaluate.call_count == 5
     assert 0 < clock[0] < 5
-    assert page.keyboard.press.call_args.args == ("ArrowUp",)
+    page.locator.assert_called_once_with("canvas")
+    page.locator.return_value.click.assert_called_once_with()
 
 
 @pytest.mark.parametrize("clipboard", ["", "file:///home/nlp2cmd/old.txt",

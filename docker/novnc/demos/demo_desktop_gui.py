@@ -113,7 +113,7 @@ def _wait_for_firefox_report(page, document_path, *, timeout_ms=45000):
             if (time.monotonic() < deadline and marker in text
                     and "NLP2CMD Desktop Automation Report" in text
                     and "This document was created autonomously by NLP2CMD." in text):
-                page.keyboard.press("ArrowUp")  # collapse the selection for the recording
+                page.locator("canvas").click()  # clear the native selection for the recording
                 return
         wait(500)
     raise RuntimeError("Firefox did not expose this report through the noVNC clipboard before the deadline")
