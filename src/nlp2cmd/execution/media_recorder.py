@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from uuid import uuid4
 
 from nlp2cmd.execution.base import BaseExecutor, ExecutorContext, ExecutorResult
+
 
 class MediaRecorder(BaseExecutor):
     """Manages video recording and screenshots during browser sessions."""
@@ -23,6 +24,10 @@ class MediaRecorder(BaseExecutor):
         self._recording = False
         self._recording_page: Any = None
         self._recorded_video: Any = None
+
+    @staticmethod
+    def _planned_result(action: str) -> ExecutorResult:
+        return ExecutorResult(success=True, kind="media", data={"dry_run": True, "action": action})
 
     @property
     def supported_actions(self) -> list[str]:
@@ -51,6 +56,8 @@ class MediaRecorder(BaseExecutor):
         ctx: ExecutorContext,
     ) -> ExecutorResult:
         """Start video recording."""
+        if ctx.dry_run:
+            return self._planned_result("start_recording")
         if self._recording:
             return ExecutorResult(success=False, kind="media", error="Recording already active")
         output_dir = params.get("output_dir", ctx.video_dir or self._output_dir)
@@ -92,6 +99,8 @@ class MediaRecorder(BaseExecutor):
         ctx: ExecutorContext,
     ) -> ExecutorResult:
         """Stop video recording and return output path."""
+        if ctx.dry_run:
+            return self._planned_result("stop_recording")
         if not self._video_recorder or not self._recording:
             return ExecutorResult(
                 success=True, kind="media",
@@ -127,6 +136,8 @@ class MediaRecorder(BaseExecutor):
         ctx: ExecutorContext,
     ) -> ExecutorResult:
         """Take a screenshot of the current page."""
+        if ctx.dry_run:
+            return self._planned_result("screenshot")
         page = ctx.page
         if page is None:
             return ExecutorResult(
@@ -135,7 +146,7 @@ class MediaRecorder(BaseExecutor):
             )
 
         try:
-            from nlp2cmd.utils.media_utils import get_timestamp, ensure_dir
+            from nlp2cmd.utils.media_utils import ensure_dir, get_timestamp
             path = Path(params.get("path") or f"./screenshots/screenshot_{get_timestamp()}_{uuid4().hex}.png")
             ensure_dir(path.parent)
             path = str(path)
@@ -154,7 +165,7 @@ class MediaRecorder(BaseExecutor):
     def is_recording(self) -> bool:
         return self._recording
 
-    def get_context_options(self, video_fmt: Optional[str] = None) -> dict[str, Any]:
+    def get_context_options(self, video_fmt: str | None = None) -> dict[str, Any]:
         """Return Playwright context options for video recording."""
         if not video_fmt:
             return {}
