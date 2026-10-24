@@ -78,6 +78,47 @@ def _launch_desktop_application(page, command, *, startup_ms=2000):
     page.wait_for_timeout(startup_ms)
 
 
+def _wait_for_firefox_report(page, document_path, *, timeout_ms=45000):
+    """Verify the current browser URL and document through native VNC copy.
+
+    The noVNC DOM cannot describe native desktop windows. Its clipboard mirror
+    can report what the focused application copies. Check both the location and
+    this session's document marker, so a visible editor or an older Firefox tab
+    cannot satisfy readiness. No container-side control is needed.
+    """
+    deadline = time.monotonic() + timeout_ms / 1000
+    url = f"file://{document_path}"
+    marker = f"Document: {Path(document_path).name}"
+
+    def wait(milliseconds):
+        remaining = (deadline - time.monotonic()) * 1000
+        if remaining <= 0:
+            raise RuntimeError("Firefox did not expose this report through the noVNC clipboard before the deadline")
+        page.wait_for_timeout(min(milliseconds, remaining))
+
+    def copy_selection():
+        page.keyboard.press("Control+c")
+        wait(250)
+        return page.evaluate("() => document.getElementById('noVNC_clipboard_text')?.value || ''")
+
+    while time.monotonic() < deadline:
+        page.keyboard.press("Control+l")
+        location = copy_selection().strip()
+        page.keyboard.press("Escape")
+        if location == url:
+            # Firefox's F6 moves focus from the location bar back into the page.
+            page.keyboard.press("F6")
+            page.keyboard.press("Control+a")
+            text = copy_selection()
+            if (time.monotonic() < deadline and marker in text
+                    and "NLP2CMD Desktop Automation Report" in text
+                    and "This document was created autonomously by NLP2CMD." in text):
+                page.keyboard.press("ArrowUp")  # collapse the selection for the recording
+                return
+        wait(500)
+    raise RuntimeError("Firefox did not expose this report through the noVNC clipboard before the deadline")
+
+
 def _run_desktop_steps(page, logger, *, document_path):
     """Perform the demonstration independently of resource management."""
     # --- Step 2: Terminal ---
@@ -122,6 +163,7 @@ def _run_desktop_steps(page, logger, *, document_path):
         "NLP2CMD Desktop Automation Report\n"
         "==================================\n\n"
         f"Date: {date.today().isoformat()}\n"
+        f"Document: {Path(document_path).name}\n"
         "System: Linux (XFCE via noVNC)\n\n"
         "This document was created autonomously by NLP2CMD.\n"
     )
@@ -156,7 +198,8 @@ def _run_desktop_steps(page, logger, *, document_path):
     # Show the result of this session without depending on an external website.
     url = f"file://{document_path}"
     _launch_desktop_application(page, f"firefox {url}", startup_ms=5000)
-    logger.step("Opened Firefox browser", page=page, extra={"url": url})
+    _wait_for_firefox_report(page, document_path)
+    logger.step("Verified current report in Firefox", page=page, extra={"url": url})
 
     # --- Final ---
     page.wait_for_timeout(2000)
