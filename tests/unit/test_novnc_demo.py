@@ -103,6 +103,68 @@ def test_recording_disabled_does_not_access_video(demo, session):
     session.page.video.path.assert_not_called()
 
 
+@pytest.fixture
+def clipboard_page(demo, monkeypatch):
+    page = MagicMock()
+    clock = [0.0]
+    monkeypatch.setattr(demo.time, "monotonic", lambda: clock[0])
+    page.wait_for_timeout.side_effect = lambda ms: clock.__setitem__(0, clock[0] + ms / 1000)
+    return page, clock
+
+
+def test_firefox_readiness_waits_for_current_url_and_current_report(demo, clipboard_page):
+    page, clock = clipboard_page
+    path = "/home/nlp2cmd/nlp2cmd_report_current.txt"
+    text = ("NLP2CMD Desktop Automation Report\nDocument: nlp2cmd_report_current.txt\n"
+            "This document was created autonomously by NLP2CMD.")
+    page.evaluate.side_effect = ["/home/nlp2cmd", f"file://{path}", text.replace("current", "old"),
+                                 f"file://{path}", text]
+    demo._wait_for_firefox_report(page, path, timeout_ms=5000)
+    assert page.evaluate.call_count == 5
+    assert 0 < clock[0] < 5
+    assert all(call.args == ("canvas",) for call in page.locator.call_args_list)
+    assert page.locator.return_value.click.call_count == 3
+
+
+@pytest.mark.parametrize("clipboard", ["", "file:///home/nlp2cmd/old.txt",
+    "NLP2CMD Desktop Automation Report\nDocument: current.txt\nThis document was created autonomously by NLP2CMD."])
+def test_firefox_readiness_rejects_missing_feedback_wrong_url_and_editor_text(demo, clipboard_page, clipboard):
+    page, clock = clipboard_page
+    page.evaluate.return_value = clipboard
+    with pytest.raises(RuntimeError, match="before the deadline"):
+        demo._wait_for_firefox_report(page, "/home/nlp2cmd/current.txt", timeout_ms=1000)
+    assert clock[0] == 1
+
+
+def test_firefox_readiness_rejects_old_content_at_current_url(demo, clipboard_page):
+    page, clock = clipboard_page
+    responses = iter(["file:///home/nlp2cmd/current.txt", "Document: old.txt"] * 5)
+    page.evaluate.side_effect = lambda *args: next(responses)
+    with pytest.raises(RuntimeError, match="before the deadline"):
+        demo._wait_for_firefox_report(page, "/home/nlp2cmd/current.txt", timeout_ms=1500)
+    assert clock[0] == 1.5
+
+
+def test_firefox_readiness_does_not_retry_a_closed_browser(demo, clipboard_page):
+    page, _ = clipboard_page
+    page.evaluate.side_effect = RuntimeError("browser closed")
+    with pytest.raises(RuntimeError, match="browser closed"):
+        demo._wait_for_firefox_report(page, "/home/nlp2cmd/current.txt")
+    assert page.evaluate.call_count == 1
+
+
+def test_report_verification_failure_preserves_video_and_failed_status(demo, session, monkeypatch):
+    monkeypatch.setattr(demo, "_run_desktop_steps", lambda page, logger, *, document_path:
+                        demo._wait_for_firefox_report(page, document_path))
+    session.page.evaluate.side_effect = RuntimeError("clipboard unavailable")
+    with pytest.raises(RuntimeError, match="clipboard unavailable"):
+        demo.run_demo(record=True, output_dir=session.directory)
+    assert session.path.is_file()
+    assert session.logger.end.call_args.kwargs["summary"]["Status"] == "failed"
+    session.context.close.assert_called_once()
+    session.browser.close.assert_called_once()
+
+
 def test_cli_failure_returns_nonzero(demo, monkeypatch):
     monkeypatch.setattr(sys, "argv", ["demo_desktop_gui.py", "--record"])
     monkeypatch.setattr(demo, "ensure_playwright", lambda: True)

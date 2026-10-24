@@ -1,0 +1,86 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-018",
+  "summary": "Verify Firefox report before completing noVNC presentation",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P2",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-018/**",
+    "TODO.md",
+    "project/TICKETS.md",
+    "docker/novnc/demos/demo_desktop_gui.py",
+    "tests/unit/test_novnc_demo.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "3414b58446dd457c92e113aaaa312273a6da9aaf",
+    "targetBranch": "main",
+    "outcome": "Verify the current Firefox URL and unique report content over the noVNC clipboard before recording completion; preserve truthful failures and publish through independent protected validation.",
+    "nonGoals": [
+      "No changes to user sessions, global autonomy, Docker images, dependencies or desktop backends."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 60,
+    "budgets": {
+      "maxImplementationFiles": 2,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Use bounded native clipboard observation through noVNC and a unique document marker; clear selection before final screenshots.",
+      "components": [
+        {
+          "name": "novnc-presentation",
+          "paths": [
+            "docker/novnc/demos/demo_desktop_gui.py",
+            "tests/unit/test_novnc_demo.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "single-state",
+        "states": [
+          "success"
+        ],
+        "evidence": [
+          "receipt:firefox-readiness/e2e"
+        ]
+      },
+      "rollback": "Protected revert of the exact implementation while preserving recordings."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-03",
+        "commands": [
+          "74 focused unit tests",
+          "Five real-browser/noVNC acceptance tests",
+          "Managed governance and required Python matrix CI"
+        ],
+        "evidence": "receipt:firefox-readiness/e2e"
+      },
+      {
+        "criterion": "AC-04",
+        "commands": [
+          "Independent exact-head Validator and protected merge"
+        ],
+        "evidence": "receipt:firefox-readiness/publication"
+      }
+    ]
+  }
+}
