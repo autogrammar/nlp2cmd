@@ -1,0 +1,78 @@
+{
+  "schema": "new-project.intent/v3",
+  "ticket": "ticket-017",
+  "summary": "Honor media dry-run and bind registry dispatch action",
+  "workstream": "application",
+  "classification": {
+    "kind": "BUG",
+    "priority": "P1",
+    "origin": "health"
+  },
+  "allowedPaths": [
+    "project/ticket-017/**",
+    "src/nlp2cmd/execution/media_recorder.py",
+    "src/nlp2cmd/execution/executor_registry.py",
+    "tests/unit/test_media_recorder.py",
+    "tests/unit/test_executors.py"
+  ],
+  "forbiddenPaths": [
+    "project/ticket-*/user-*.md"
+  ],
+  "stacks": [],
+  "dependsOn": [],
+  "conflictsWith": [],
+  "integrationTicket": null,
+  "delivery": {
+    "acceptedBaseSha": "d6cf5b6860b526ebaf93fab97d90d5355747b0c5",
+    "targetBranch": "main",
+    "outcome": "Media dry-run returns an explicit planned result without browser/filesystem calls or recording state changes. Registry dispatch binds the selected action and rejects conflicting payload action without mutating caller input. Publish after required CI and independent review.",
+    "nonGoals": [
+      "No browser lifecycle, supported-action, dependency, host service or production grant changes."
+    ],
+    "complexity": "S",
+    "estimatedMinutes": 35,
+    "budgets": {
+      "maxImplementationFiles": 4,
+      "maxAffectedComponents": 1,
+      "maxPublicInterfaceChanges": 0,
+      "maxRuntimeDependencies": 0
+    },
+    "architecture": {
+      "status": "accepted",
+      "decision": "Guard each public media action before effects; expose planned metadata only. Bind registry action via a copied payload and reject ambiguous mismatches before invoking its executor.",
+      "components": [
+        {
+          "name": "media-dispatch",
+          "paths": [
+            "src/nlp2cmd/execution/media_recorder.py",
+            "src/nlp2cmd/execution/executor_registry.py",
+            "tests/unit/test_media_recorder.py",
+            "tests/unit/test_executors.py"
+          ]
+        }
+      ],
+      "responsibilityChanges": false,
+      "interfaceChanges": [],
+      "dataChanges": [],
+      "ui": {
+        "impact": "none",
+        "states": [],
+        "evidence": []
+      },
+      "rollback": "Protected revert of exact implementation while preserving existing recordings."
+    },
+    "runtimeDependencies": [],
+    "validation": [
+      {
+        "criterion": "AC-01",
+        "commands": [
+          "Focused media/executor/noVNC regression tests",
+          "Real Playwright dry-run and recording tests",
+          "Managed governance and required Python CI",
+          "Independent exact-head publication"
+        ],
+        "evidence": "receipt:media-dryrun-20261024/evidence"
+      }
+    ]
+  }
+}

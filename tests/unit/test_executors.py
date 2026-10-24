@@ -2,19 +2,16 @@
 
 from __future__ import annotations
 
-import subprocess
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from nlp2cmd.execution.base import BaseExecutor, ExecutorContext, ExecutorResult
+from nlp2cmd.execution.base import ExecutorContext, ExecutorResult
 from nlp2cmd.execution.executor_registry import (
     ExecutorRegistry,
     create_default_registry,
 )
 from nlp2cmd.execution.media_recorder import MediaRecorder
 from nlp2cmd.execution.shell_executor import ShellExecutor
-
 
 # ── ExecutorResult ──────────────────────────────────────────────────────
 
@@ -215,6 +212,58 @@ class TestMediaRecorder:
 # ── ExecutorRegistry ────────────────────────────────────────────────────
 
 class TestExecutorRegistry:
+    def test_dispatch_media_start_binds_action_without_mutating_params(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        registry = ExecutorRegistry()
+        recorder = MediaRecorder()
+        registry.register(recorder)
+        page = MagicMock()
+        page.is_closed.return_value = False
+        params = {"name_prefix": "selected"}
+
+        result = registry.dispatch("start_recording", params, ExecutorContext(page=page, video_dir=str(tmp_path)))
+
+        assert result.success, result.error
+        assert recorder.is_recording
+        assert params == {"name_prefix": "selected"}
+        page.screenshot.assert_not_called()
+
+    def test_dispatch_media_stop_finalizes_selected_recording(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        registry = ExecutorRegistry()
+        recorder = MediaRecorder()
+        registry.register(recorder)
+        page = MagicMock()
+        page.is_closed.return_value = False
+        page.video.save_as.side_effect = lambda path: Path(path).write_bytes(b"recorded video")
+        ctx = ExecutorContext(page=page, video_dir=str(tmp_path))
+        assert recorder.start_recording({}, ctx).success
+        page.is_closed.return_value = True
+        params = {}
+
+        result = registry.dispatch("stop_recording", params, ctx)
+
+        assert result.success, result.error
+        assert not recorder.is_recording
+        assert Path(result.data["video_path"]).read_bytes() == b"recorded video"
+        assert params == {}
+        page.screenshot.assert_not_called()
+
+    def test_dispatch_rejects_conflicting_payload_before_executor(self):
+        registry = ExecutorRegistry()
+        executor = MagicMock()
+        executor.supported_actions = ["start_recording"]
+        executor.execute.return_value = ExecutorResult(success=True, kind="media")
+        registry.register(executor)
+        params = {"action": "screenshot"}
+
+        result = registry.dispatch("start_recording", params, ExecutorContext(dry_run=True))
+
+        assert not result.success
+        assert "action" in result.error.lower()
+        assert params == {"action": "screenshot"}
+        executor.execute.assert_not_called()
+
     def test_register_and_dispatch(self):
         registry = ExecutorRegistry()
         executor = ShellExecutor()

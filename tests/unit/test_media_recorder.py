@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from nlp2cmd.execution.base import ExecutorContext
+from nlp2cmd.execution.executor_registry import ExecutorRegistry
 from nlp2cmd.execution.media_recorder import MediaRecorder
 from nlp2cmd.utils import media_utils
 
@@ -14,6 +15,65 @@ def recording_context(tmp_path):
     page = MagicMock()
     page.is_closed.return_value = False
     return ExecutorContext(page=page, video_dir=str(tmp_path))
+
+
+def _invoke_media(recorder, action, entry, params, ctx):
+    if entry == "direct":
+        method = recorder.take_screenshot if action == "screenshot" else getattr(recorder, action)
+        return method(params, ctx)
+    if entry == "execute":
+        return recorder.execute({**params, "action": action}, ctx)
+    registry = ExecutorRegistry()
+    registry.register(recorder)
+    return registry.dispatch(action, params, ctx)
+
+
+@pytest.mark.parametrize("action", ["start_recording", "stop_recording", "screenshot"])
+@pytest.mark.parametrize("entry", ["direct", "execute", "registry"])
+@pytest.mark.parametrize("page_present", [False, True])
+def test_media_dry_run_does_not_touch_browser_or_files(tmp_path, action, entry, page_present):
+    page = MagicMock() if page_present else None
+    if page is not None:
+        page.is_closed.return_value = False
+        page.screenshot.side_effect = lambda *, path: Path(path).write_bytes(b"unexpected capture")
+    ctx = ExecutorContext(page=page, dry_run=True, video_dir=str(tmp_path / "videos"))
+    recorder = MediaRecorder()
+
+    result = _invoke_media(recorder, action, entry, {"path": str(tmp_path / "capture.png")}, ctx)
+
+    assert result.success, result.error
+    assert result.data == {"dry_run": True, "action": action}
+    assert page is None or page.mock_calls == []
+    assert list(tmp_path.iterdir()) == []
+    assert not recorder.is_recording
+    assert recorder._video_recorder is None
+
+
+@pytest.mark.parametrize("action", ["start_recording", "stop_recording", "screenshot"])
+@pytest.mark.parametrize("entry", ["direct", "execute", "registry"])
+def test_media_dry_run_preserves_active_recording(recording_context, tmp_path, action, entry):
+    recorder = MediaRecorder()
+    assert recorder.start_recording({}, recording_context).success
+    handle = recorder._video_recorder
+    video = recording_context.page.video
+    recording_context.page.is_closed.return_value = True
+    recording_context.page.reset_mock()
+    recording_context.dry_run = True
+
+    result = _invoke_media(recorder, action, entry, {"path": str(tmp_path / "capture.png")}, recording_context)
+
+    assert result.success, result.error
+    assert result.data == {"dry_run": True, "action": action}
+    assert recorder.is_recording
+    assert recorder._video_recorder is handle
+    assert recorder._recorded_video is video
+    assert recording_context.page.mock_calls == []
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_unknown_media_action_still_fails_in_dry_run():
+    result = MediaRecorder().execute({"action": "unknown"}, ExecutorContext(dry_run=True))
+    assert not result.success
 
 
 @pytest.mark.parametrize("page_state", ["missing", "unconfigured", "closed"])
@@ -251,9 +311,38 @@ def test_real_media_executor_does_not_report_nonexistent_video(recording_context
 
 
 @pytest.mark.e2e
+def test_media_dry_run_with_real_browser_leaves_page_and_disk_unchanged(tmp_path):
+    from playwright.sync_api import sync_playwright
+
+    recorder = MediaRecorder(output_dir=str(tmp_path / "videos"))
+    registry = ExecutorRegistry()
+    registry.register(recorder)
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        try:
+            context = browser.new_context()
+            page = context.new_page()
+            page.set_content("<h1>Preview must preserve this page</h1>")
+            ctx = ExecutorContext(page=page, context=context, dry_run=True, video_dir=str(tmp_path / "videos"))
+            for action in recorder.supported_actions:
+                result = registry.dispatch(action, {"path": str(tmp_path / "capture.png")}, ctx)
+                assert result.success, result.error
+                assert result.data == {"dry_run": True, "action": action}
+            assert not page.is_closed()
+            assert page.locator("h1").inner_text() == "Preview must preserve this page"
+            assert context.pages == [page]
+            assert not recorder.is_recording
+            assert list(tmp_path.iterdir()) == []
+            context.close()
+        finally:
+            browser.close()
+
+
+@pytest.mark.e2e
 def test_media_executor_saves_real_playwright_video(tmp_path):
     import json
     import subprocess
+
     from playwright.sync_api import sync_playwright
 
     recorder = MediaRecorder(output_dir=str(tmp_path / "saved"))
@@ -267,6 +356,11 @@ def test_media_executor_saves_real_playwright_video(tmp_path):
             started = recorder.start_recording({}, ctx)
             assert started.success, started.error
             page.wait_for_timeout(500)
+            ctx.dry_run = True
+            preview = recorder.stop_recording({}, ctx)
+            assert preview.data == {"dry_run": True, "action": "stop_recording"}
+            assert recorder.is_recording and not page.is_closed()
+            ctx.dry_run = False
             premature = recorder.stop_recording({}, ctx)
             assert not premature.success and not page.is_closed()
             page.close()
@@ -295,6 +389,7 @@ def test_video_helper_finalizes_real_playwright_recording(tmp_path):
     import json
     import shutil
     import subprocess
+
     from playwright.sync_api import sync_playwright
 
     assert shutil.which("ffprobe"), "The recording E2E requires ffprobe"
@@ -331,6 +426,7 @@ def test_video_helper_finalizes_real_playwright_recording(tmp_path):
 def test_rapid_screenshots_with_real_playwright(monkeypatch, tmp_path):
     """Explicit E2E requires an installed Playwright Chromium browser."""
     import json
+
     from playwright.sync_api import sync_playwright
 
     monkeypatch.chdir(tmp_path)

@@ -9,7 +9,7 @@ instead of embedding all logic in a single God Object method.
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from nlp2cmd.execution.base import BaseExecutor, ExecutorContext, ExecutorResult
 
@@ -38,7 +38,7 @@ class ExecutorRegistry:
             log.debug("Registered executor %s for action '%s'",
                       type(executor).__name__, action)
 
-    def get(self, action: str) -> Optional[BaseExecutor]:
+    def get(self, action: str) -> BaseExecutor | None:
         """Lookup executor for an action name."""
         return self._executors.get(action)
 
@@ -59,7 +59,10 @@ class ExecutorRegistry:
                 kind="unknown",
                 error=f"No executor registered for action: {action}",
             )
-        return executor.execute(params, ctx)
+        if "action" in params and params["action"] != action:
+            return ExecutorResult(success=False, kind="unknown",
+                                  error="Payload action must match dispatch action")
+        return executor.execute({**params, "action": action}, ctx)
 
     @property
     def registered_actions(self) -> list[str]:
