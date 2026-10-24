@@ -3,7 +3,7 @@
 - **ID**: ticket-018
 - **Owner**: tom
 - **Status**: IN_PROGRESS
-- **Workflow state**: EDIT
+- **Workflow state**: PUBLICATION
 - **Created**: 2026-10-24
 
 ## Goal and scope
@@ -16,9 +16,11 @@ Bound the readiness wait and preserve the existing failure/video finalization.
 ## Acceptance criteria
 
 - [x] AC-01: Continuing autonomous repair/test/merge authorization is recorded.
-- [ ] AC-02: Delayed readiness succeeds; stale reports, missing clipboard feedback
+- [x] AC-02: Delayed readiness succeeds; stale reports, missing clipboard feedback
   and browser failures cannot produce a completed presentation.
-- [ ] AC-03: Unit tests, real-browser/noVNC acceptance and governance pass.
+- [x] AC-03: 74 focused unit tests, all 5 real-browser/noVNC acceptance tests,
+  and governance against the accepted base pass. Both consecutive desktop
+  presentations verify the current report while preserving earlier artifacts.
 - [ ] AC-04: Independent exact-head validation precedes protected merge.
 
 ## Tracking boundary

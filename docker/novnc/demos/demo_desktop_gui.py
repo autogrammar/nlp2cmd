@@ -106,8 +106,9 @@ def _wait_for_firefox_report(page, document_path, *, timeout_ms=45000):
         location = copy_selection().strip()
         page.keyboard.press("Escape")
         if location == url:
-            # Firefox's F6 moves focus from the location bar back into the page.
-            page.keyboard.press("F6")
+            # Focus the native document explicitly. F6 cycles browser chrome
+            # differently when an existing Firefox window opens another tab.
+            page.locator("canvas").click()
             page.keyboard.press("Control+a")
             text = copy_selection()
             if (time.monotonic() < deadline and marker in text
